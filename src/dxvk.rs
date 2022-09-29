@@ -41,36 +41,17 @@ impl Dxvk {
             return Ok(None);
         };
 
-        // 8 because [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
+        // 14 because [DXVK:] [\32] [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
         // [version number] takes at least 1 byte so ..
-        for i in 0..bytes.len() - 8 {
-            if bytes[i] == b'\0' && bytes[i + 1] == b'v' {
-                let mut version = [String::new(), String::new(), String::new()];
-                let mut pointer = 0;
+        for i in 0..bytes.len() - 14 {
+            if bytes[i]     == b'D' && bytes[i + 1] == b'X' && bytes[i + 2] == b'V' && bytes[i + 3] == b'K' &&
+               bytes[i + 4] == b':' && bytes[i + 5] == 32   && bytes[i + 6] == 0    && bytes[i + 7] == b'v'
+            {
+                let mut version = String::new();
 
-                for j in i + 2..bytes.len() - 6 {
-                    if bytes[j] == b'.' {
-                        pointer += 1;
-
-                        if pointer > 2 {
-                            break;
-                        }
-                    }
-
-                    else if bytes[j] >= b'0' && bytes[j] <= b'9' {
-                        version[pointer] += match bytes[j] {
-                            b'0' => "0",
-                            b'1' => "1",
-                            b'2' => "2",
-                            b'3' => "3",
-                            b'4' => "4",
-                            b'5' => "5",
-                            b'6' => "6",
-                            b'7' => "7",
-                            b'8' => "8",
-                            b'9' => "9",
-                            _ => ""
-                        };
+                for j in i + 7..bytes.len() {
+                    if bytes[j] != 0 {
+                        version += bytes[j];
                     }
 
                     else {
@@ -78,9 +59,7 @@ impl Dxvk {
                     }
                 }
 
-                if pointer == 2 && !version[0].is_empty() && !version[1].is_empty() && !version[2].is_empty() {
-                    return Ok(Some(format!("{}.{}.{}", version[0], version[1], version[2])));
-                }
+                return Ok(Some(version));
             }
         }
 

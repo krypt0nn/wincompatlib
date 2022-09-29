@@ -18,6 +18,7 @@ pub enum WineArch {
 }
 
 impl WineArch {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(arch: &str) -> Option<Self> {
         match arch {
             "win32" => Some(Self::Win32),
@@ -82,10 +83,10 @@ impl Wine {
     pub fn new<T: Into<PathBuf>>(binary: T, prefix: Option<T>, arch: Option<WineArch>, wineboot: Option<T>, wineserver: Option<T>, wineloader: WineLoader) -> Self {
         Wine {
             binary: binary.into(),
-            prefix: prefix.and_then(|value| Some(value.into())),
+            prefix: prefix.map(|value| value.into()),
             arch,
-            wineboot: wineboot.and_then(|value| Some(value.into())),
-            wineserver: wineserver.and_then(|value| Some(value.into())),
+            wineboot: wineboot.map(|value| value.into()),
+            wineserver: wineserver.map(|value| value.into()),
             wineloader
         }
     }
@@ -145,7 +146,7 @@ impl Wine {
     /// assert_eq!(Wine::from_binary("/wine_build_without_wineboot/wine").wineboot(), PathBuf::from("wineboot"));
     /// ```
     pub fn wineboot(&self) -> PathBuf {
-        self.wineboot.clone().unwrap_or(self.get_inner_binary("wineboot"))
+        self.wineboot.clone().unwrap_or_else(|| self.get_inner_binary("wineboot"))
     }
 
     /// Get path to wineserver binary, or "wineserver" if not specified
@@ -162,7 +163,7 @@ impl Wine {
     /// assert_eq!(Wine::from_binary("/wine_build_without_wineserver/wine").wineserver(), PathBuf::from("wineserver"));
     /// ```
     pub fn wineserver(&self) -> PathBuf {
-        self.wineserver.clone().unwrap_or(self.get_inner_binary("wineserver"))
+        self.wineserver.clone().unwrap_or_else(|| self.get_inner_binary("wineserver"))
     }
 
     /// Get path to wine binary, or "wine" if not specified (`WineLoader::Default`)
