@@ -49,9 +49,9 @@ impl Dxvk {
             {
                 let mut version = String::new();
 
-                for j in i + 7..bytes.len() {
-                    if bytes[j] != 0 {
-                        version += bytes[j];
+                for byte in bytes.iter().skip(i + 8) {
+                    if *byte != 0 {
+                        version.push((*byte).into());
                     }
 
                     else {
