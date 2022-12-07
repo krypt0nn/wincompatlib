@@ -57,13 +57,13 @@ fn get_dxvk_apply_script() -> PathBuf {
             .expect("Failed to create test directory");
     }
 
-    let dxvk_dir = test_dir.join("dxvk-1.10.3");
+    let dxvk_dir = test_dir.join("dxvk-2.0");
 
     if !dxvk_dir.exists() {
         Command::new("curl")
             .arg("-L")
             .arg("-s")
-            .arg("https://github.com/doitsujin/dxvk/releases/download/v1.10.3/dxvk-1.10.3.tar.gz")
+            .arg("https://github.com/doitsujin/dxvk/releases/download/v2.0/dxvk-2.0.tar.gz")
             .arg("-o")
             .arg(test_dir.join("dxvk.tar.gz"))
             .output()
@@ -121,7 +121,7 @@ fn apply_dxvk() {
 
     assert!(version.is_ok());
     assert!(version.as_ref().unwrap().is_some());
-    assert_eq!(version.unwrap().unwrap(), String::from("1.10.3"));
+    assert_eq!(version.unwrap().unwrap(), String::from("2.0"));
 }
 
 #[test]

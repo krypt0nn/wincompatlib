@@ -26,19 +26,9 @@ impl Dxvk {
     pub fn get_version<T: Into<PathBuf>>(prefix: T) -> Result<Option<String>> {
         let prefix: PathBuf = prefix.into();
 
-        let (bytes, from, to) = match std::fs::read(prefix.join("drive_c/windows/system32/dxgi.dll")) {
-            Ok(bytes) => (bytes, 1600000, 1700000),
-            Err(_) => {
-                let bytes = std::fs::read(prefix.join("drive_c/windows/system32/d3d11.dll"))?;
-
-                (bytes, 2400000, 2500000)
-            }
-        };
-
-        let bytes = if bytes.len() > to {
-            bytes[from..to].to_vec()
-        } else {
-            return Ok(None);
+        let bytes = match std::fs::read(prefix.join("drive_c/windows/system32/dxgi.dll")) {
+            Ok(bytes) => bytes,
+            Err(_) => std::fs::read(prefix.join("drive_c/windows/system32/d3d11.dll"))?
         };
 
         // 14 because [DXVK:] [\32] [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
