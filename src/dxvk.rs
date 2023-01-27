@@ -1,8 +1,134 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::io::{Error, ErrorKind, Result};
-use std::process::{Command, Output};
 
-use regex::Regex;
+use derive_builder::Builder;
+
+use super::wine::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Arch {
+    Win32,
+    Win64
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Builder)]
+pub struct InstallParams {
+    /// Install DXGI
+    /// 
+    /// Defualt is `true`
+    pub dxgi: bool,
+
+    /// Install D3D9
+    /// 
+    /// Defualt is `true`
+    pub d3d9: bool,
+
+    /// Install D3D10 Core
+    /// 
+    /// Defualt is `true`
+    pub d3d10core: bool,
+
+    /// Install D3D11
+    /// 
+    /// Defualt is `true`
+    pub d3d11: bool,
+
+    /// Ensure wine placeholder dlls are recreated if they are missing
+    /// 
+    /// Default is `true`
+    pub repair_dlls: bool,
+
+    /// Which library versions should be installed
+    /// 
+    /// Defualt is `Arch::Win64`
+    pub arch: Arch
+}
+
+impl Default for InstallParams {
+    fn default() -> Self {
+        Self {
+            dxgi: true,
+            d3d9: true,
+            d3d10core: true,
+            d3d11: true,
+            repair_dlls: true,
+            arch: Arch::Win64
+        }
+    }
+}
+
+/// Add dll override to the wine prefix
+pub fn install_dll(wine: &Wine, system32: &Path, dlls_folder: &Path, dll_name: &str) -> Result<()> {
+    let src_path = dlls_folder.join(format!("{dll_name}.dll"));
+    let dest_path = system32.join(format!("{dll_name}.dll"));
+    let dest_path_old = system32.join(format!("{dll_name}.dll.old"));
+
+    // Check dlls existence
+    if !src_path.exists() {
+        return Err(Error::new(ErrorKind::Other, "Failed to resolve path: ".to_string() + &src_path.to_string_lossy()));
+    }
+
+    if !dest_path.exists() {
+        return Err(Error::new(ErrorKind::Other, "Failed to resolve path: ".to_string() + &dest_path.to_string_lossy()));
+    }
+
+    // Remove dest file (original one is already persisted)
+    if dest_path_old.exists() {
+        std::fs::remove_file(&dest_path)?;
+    }
+
+    // Rename dest file (it's (likely) an original one)
+    else {
+        std::fs::rename(&dest_path, dest_path_old)?;
+    }
+
+    // Copy dll to the destination location
+    std::fs::copy(&src_path, &dest_path)?;
+
+    // "$wine" reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v $1 /d native /f
+    let output = wine.run_args(["reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides", "/v", dll_name, "/d", "native", "/f"])?.wait_with_output()?;
+
+    match output.status.success() {
+        true  => Ok(()),
+        false => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            Err(Error::new(ErrorKind::Other, "Failed to add dll override: ".to_string() + stdout.trim_end().lines().last().unwrap_or(&stdout)))
+        }
+    }
+}
+
+/// Remove dll override from the wine prefix
+pub fn restore_dll(wine: &Wine, system32: &Path, dll_name: &str) -> Result<()> {
+    let dest_path = system32.join(format!("{dll_name}.dll"));
+    let dest_path_old = system32.join(format!("{dll_name}.dll.old"));
+
+    // Check dll existence
+    if dest_path.exists() {
+        // Original file exists so we'll restore it
+        if dest_path_old.exists() {
+            std::fs::remove_file(&dest_path)?;
+            std::fs::rename(&dest_path_old, dest_path)?;
+        }
+
+        // Original file doesn't exist
+        else {
+            return Err(Error::new(ErrorKind::Other, "Failed to restore dll, original file is not persisted: ".to_string() + &dest_path.to_string_lossy()));
+        }
+    }
+
+    // "$wine" reg delete 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v $1 /f
+    let output = wine.run_args(["reg", "delete", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides", "/v", dll_name, "/f"])?.wait_with_output()?;
+
+    match output.status.success() {
+        true  => Ok(()),
+        false => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            Err(Error::new(ErrorKind::Other, "Failed to add dll override: ".to_string() + stdout.trim_end().lines().last().unwrap_or(&stdout)))
+        }
+    }
+}
 
 pub struct Dxvk;
 
@@ -26,9 +152,9 @@ impl Dxvk {
     pub fn get_version<T: Into<PathBuf>>(prefix: T) -> Result<Option<String>> {
         let prefix: PathBuf = prefix.into();
 
-        let bytes = match std::fs::read(prefix.join("drive_c/windows/system32/dxgi.dll")) {
+        let bytes = match std::fs::read(prefix.join("drive_c/windows/system32/d3d11.dll")) {
             Ok(bytes) => bytes,
-            Err(_) => std::fs::read(prefix.join("drive_c/windows/system32/d3d11.dll"))?
+            Err(_) => std::fs::read(prefix.join("drive_c/windows/system32/dxgi.dll"))?
         };
 
         // 14 because [DXVK:] [\32] [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
@@ -56,44 +182,6 @@ impl Dxvk {
         Ok(None)
     }
 
-    fn prepare_script(
-        setup_script: PathBuf,
-        wine_path: PathBuf,
-        wine64_path: PathBuf,
-        wineboot_path: PathBuf
-    ) -> Result<()> {
-        let setup_script_path = setup_script;
-        let mut setup_script = std::fs::read_to_string(&setup_script_path)?;
-
-        let wine = Regex::new("wine=\".*\"").unwrap();
-        let wine64 = Regex::new("wine64=\".*\"").unwrap();
-        let wineboot = Regex::new("wineboot=\".*\"").unwrap();
-
-        // Update wine paths
-        setup_script = wine.replace_all(&setup_script, &format!("wine={:?}", wine_path)).to_string();
-        setup_script = wine64.replace_all(&setup_script, &format!("wine64={:?}", wine64_path)).to_string();
-        setup_script = wineboot.replace_all(&setup_script, &format!("wineboot={:?}", wineboot_path)).to_string();
-
-        // Use wine64 to update wine prefix instead of running wineboot
-        // so we can get rid of 32bit support
-        setup_script = setup_script.replace("$wineboot -u", "\"$wine64\" -u");
-
-        // Fix issues related to spaces in paths to the runners folder
-        setup_script = setup_script.replace("which $wineboot", "which \"$wineboot\"");
-        setup_script = setup_script.replace("$wine --version", "\"$wine\" --version");
-        setup_script = setup_script.replace("$wine64 winepath", "\"$wine64\" winepath");
-        setup_script = setup_script.replace("$wine winepath", "\"$wine\" winepath");
-        setup_script = setup_script.replace("$wine reg", "\"$wine\" reg");
-
-        // Old GE builds return specific --version output which can break
-        // DXVK installation script
-        setup_script = setup_script.replace("grep wine", "grep \"wine\\|GE\"");
-
-        std::fs::write(&setup_script_path, setup_script)?;
-
-        Ok(())
-    }
-
     /// Install DXVK to wine prefix
     /// 
     /// ```no_run
@@ -101,47 +189,72 @@ impl Dxvk {
     /// 
     /// use std::path::PathBuf;
     /// 
-    /// let output = Dxvk::install(
-    ///     PathBuf::from("/path/to/setup_dxvk.sh"),
-    ///     PathBuf::from("/path/to/wine/prefix"),
-    ///     PathBuf::from("/path/to/wine"),
-    ///     PathBuf::from("/path/to/wine64"),
-    ///     PathBuf::from("/path/to/wineboot"),
-    ///     PathBuf::from("/path/to/wineserver")
+    /// Dxvk::install(
+    ///     &Wine::default(),
+    ///     PathBuf::from("/path/to/dxvk-x.y.z"),
+    ///     InstallParams::default()
     /// ).expect("Failed to install DXVK");
-    /// 
-    /// println!("Installing output: {}", String::from_utf8_lossy(&output.stdout));
     /// ```
-    pub fn install(
-        setup_script: PathBuf,
-        prefix_path: PathBuf,
-        wine_path: PathBuf,
-        wine64_path: PathBuf,
-        wineboot_path: PathBuf,
-        wineserver_path: PathBuf
-    ) -> Result<Output> {
-        let setup_script_path = setup_script.clone();
+    pub fn install<T: Into<PathBuf>>(
+        wine: &Wine,
+        dxvk_folder: T,
+        params: InstallParams
+    ) -> Result<()> {
+        match &wine.prefix {
+            Some(prefix) => {
+                // Check correctness of the wine prefix
+                if !prefix.exists() || !prefix.join("system.reg").exists() {
+                    return Err(Error::new(ErrorKind::Other, prefix.to_string_lossy() + " is not a valid wine prefix"));
+                }
 
-        Self::prepare_script(
-            setup_script,
-            wine_path,
-            wine64_path,
-            wineboot_path
-        )?;
+                // Verify and repair wine prefix if needed (and asked to)
+                if params.repair_dlls {
+                    let output = wine.update_prefix(prefix)?;
 
-        let output = Command::new("bash")
-            .arg(&setup_script_path)
-            .arg("install")
-            .env("WINEPREFIX", prefix_path)
-            .env("WINESERVER", wineserver_path)
-            .output()?;
+                    if !output.status.success() {
+                        return Err(Error::new(ErrorKind::Other, "Failed to repair wine prefix: ".to_string() + &String::from_utf8_lossy(&output.stderr)));
+                    }
+                }
 
-        if output.status.success() {
-            Ok(output)
-        }
+                let system32 = wine.winepath("C:\\windows\\system32")?;
+                let dxvk_folder = dxvk_folder.into();
 
-        else {
-            Err(Error::new(ErrorKind::Other, String::from_utf8_lossy(&output.stderr)))
+                // DXGI
+                if params.dxgi {
+                    match params.arch {
+                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "dxgi")?,
+                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "dxgi")?
+                    }
+                }
+
+                // D3D9
+                if params.d3d9 {
+                    match params.arch {
+                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d9")?,
+                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d9")?
+                    }
+                }
+
+                // D3D10 Core
+                if params.d3d10core {
+                    match params.arch {
+                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d10core")?,
+                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d10core")?
+                    }
+                }
+
+                // D3D11
+                if params.d3d11 {
+                    match params.arch {
+                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d11")?,
+                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d11")?
+                    }
+                }
+
+                Ok(())
+            }
+
+            None => Err(Error::new(ErrorKind::Other, "You must give a wine prefix path"))
         }
     }
 
@@ -152,47 +265,69 @@ impl Dxvk {
     /// 
     /// use std::path::PathBuf;
     /// 
-    /// let output = Dxvk::uninstall(
-    ///     PathBuf::from("/path/to/setup_dxvk.sh"),
-    ///     PathBuf::from("/path/to/wine/prefix"),
-    ///     PathBuf::from("/path/to/wine"),
-    ///     PathBuf::from("/path/to/wine64"),
-    ///     PathBuf::from("/path/to/wineboot"),
-    ///     PathBuf::from("/path/to/wineserver")
+    /// Dxvk::uninstall(
+    ///     &Wine::default(),
+    ///     InstallParams::default()
     /// ).expect("Failed to uninstall DXVK");
-    /// 
-    /// println!("Uninstalling output: {}", String::from_utf8_lossy(&output.stdout));
     /// ```
     pub fn uninstall(
-        setup_script: PathBuf,
-        prefix_path: PathBuf,
-        wine_path: PathBuf,
-        wine64_path: PathBuf,
-        wineboot_path: PathBuf,
-        wineserver_path: PathBuf
-    ) -> Result<Output> {
-        let setup_script_path = setup_script.clone();
+        wine: &Wine,
+        params: InstallParams
+    ) -> Result<()> {
+        match &wine.prefix {
+            Some(prefix) => {
+                // Check correctness of the wine prefix
+                if !prefix.exists() || !prefix.join("system.reg").exists() {
+                    return Err(Error::new(ErrorKind::Other, prefix.to_string_lossy() + " is not a valid wine prefix"));
+                }
 
-        Self::prepare_script(
-            setup_script,
-            wine_path,
-            wine64_path,
-            wineboot_path
-        )?;
+                // Verify and repair wine prefix if needed (and asked to)
+                if params.repair_dlls {
+                    let output = wine.update_prefix(prefix)?;
 
-        let output = Command::new("bash")
-            .arg(&setup_script_path)
-            .arg("uninstall")
-            .env("WINEPREFIX", prefix_path)
-            .env("WINESERVER", wineserver_path)
-            .output()?;
+                    if !output.status.success() {
+                        return Err(Error::new(ErrorKind::Other, "Failed to repair wine prefix: ".to_string() + &String::from_utf8_lossy(&output.stderr)));
+                    }
+                }
 
-        if output.status.success() {
-            Ok(output)
-        }
+                let system32 = wine.winepath("C:\\windows\\system32")?;
 
-        else {
-            Err(Error::new(ErrorKind::Other, String::from_utf8_lossy(&output.stderr)))
+                // DXGI
+                if params.dxgi {
+                    match params.arch {
+                        Arch::Win32 => restore_dll(wine, &system32, "dxgi")?,
+                        Arch::Win64 => restore_dll(wine, &system32, "dxgi")?
+                    }
+                }
+
+                // D3D9
+                if params.d3d9 {
+                    match params.arch {
+                        Arch::Win32 => restore_dll(wine, &system32, "d3d9")?,
+                        Arch::Win64 => restore_dll(wine, &system32, "d3d9")?
+                    }
+                }
+
+                // D3D10 Core
+                if params.d3d10core {
+                    match params.arch {
+                        Arch::Win32 => restore_dll(wine, &system32, "d3d10core")?,
+                        Arch::Win64 => restore_dll(wine, &system32, "d3d10core")?
+                    }
+                }
+
+                // D3D11
+                if params.d3d11 {
+                    match params.arch {
+                        Arch::Win32 => restore_dll(wine, &system32, "d3d11")?,
+                        Arch::Win64 => restore_dll(wine, &system32, "d3d11")?
+                    }
+                }
+
+                Ok(())
+            }
+
+            None => Err(Error::new(ErrorKind::Other, "You must give a wine prefix path"))
         }
     }
 }

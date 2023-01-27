@@ -7,6 +7,8 @@ use serial_test::*;
 
 use crate::prelude::*;
 
+use crate::wine::WineRunExt;
+
 fn get_test_dir() -> PathBuf {
     std::env::temp_dir().join("wincompatlib-test")
 }
@@ -49,7 +51,7 @@ fn get_custom_wine() -> Wine {
 }
 
 #[cfg(feature = "dxvk")]
-fn get_dxvk_apply_script() -> PathBuf {
+fn get_dxvk_folder() -> PathBuf {
     let test_dir = get_test_dir();
 
     if !test_dir.exists() {
@@ -57,13 +59,13 @@ fn get_dxvk_apply_script() -> PathBuf {
             .expect("Failed to create test directory");
     }
 
-    let dxvk_dir = test_dir.join("dxvk-2.0");
+    let dxvk_dir = test_dir.join("dxvk-2.1");
 
     if !dxvk_dir.exists() {
         Command::new("curl")
             .arg("-L")
             .arg("-s")
-            .arg("https://github.com/doitsujin/dxvk/releases/download/v2.0/dxvk-2.0.tar.gz")
+            .arg("https://github.com/doitsujin/dxvk/releases/download/v2.1/dxvk-2.1.tar.gz")
             .arg("-o")
             .arg(test_dir.join("dxvk.tar.gz"))
             .output()
@@ -77,7 +79,7 @@ fn get_dxvk_apply_script() -> PathBuf {
             .expect("Failed to extract downloaded dxvk. Tar is not available?");
     }
 
-    dxvk_dir.join("setup_dxvk.sh")
+    dxvk_dir
 }
 
 #[test]
@@ -94,17 +96,18 @@ fn wine_version() {
 #[test]
 #[serial]
 #[cfg(feature = "dxvk")]
-fn apply_dxvk() {
+fn apply_dxvk() -> std::io::Result<()> {
     // Test non existing prefix version
     assert!(Dxvk::get_version("\0").is_err());
 
     // Test DXVK uninstalling
-    let dxvk_script = get_dxvk_apply_script();
-    let wine = get_custom_wine();
+    let dxvk_folder = get_dxvk_folder();
+    let wine = get_custom_wine().with_prefix(get_prefix_dir());
 
-    let result = wine.uninstall_dxvk(&dxvk_script, &get_prefix_dir());
-
-    assert!(result.is_ok());
+    #[allow(unused_must_use)]
+    {
+        wine.uninstall_dxvk(InstallParams::default());
+    }
 
     // Test clear prefix DXVK version
     let version = Dxvk::get_version(get_prefix_dir());
@@ -112,16 +115,17 @@ fn apply_dxvk() {
     assert_eq!(version.unwrap(), None);
 
     // Test DXVK installing
-    let result = wine.install_dxvk(&dxvk_script, &get_prefix_dir());
-
-    assert!(result.is_ok());
+    wine.install_dxvk(dxvk_folder, InstallParams::default())?;
 
     // Test installed DXVK version
-    let version = Dxvk::get_version(get_prefix_dir());
+    let version = Dxvk::get_version(get_prefix_dir())?;
 
-    assert!(version.is_ok());
-    assert!(version.as_ref().unwrap().is_some());
-    assert_eq!(version.unwrap().unwrap(), String::from("2.0"));
+    assert!(version.is_some());
+    assert_eq!(version.unwrap(), String::from("2.1"));
+
+    wine.uninstall_dxvk(InstallParams::default())?;
+
+    Ok(())
 }
 
 #[test]
@@ -145,8 +149,7 @@ fn create_prefix() {
 #[test]
 #[serial]
 fn run_and_kill_notepad() {
-    let wine = get_custom_wine()
-        .with_prefix(get_prefix_dir());
+    let wine = get_custom_wine().with_prefix(get_prefix_dir());
 
     assert!(wine.run("notepad").is_ok());
 

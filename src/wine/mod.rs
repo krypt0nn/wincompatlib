@@ -1,15 +1,19 @@
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::ffi::{OsString, OsStr};
 use std::os::unix::prelude::OsStringExt;
 use std::path::PathBuf;
-use std::io::Result;
-use std::process::{Command, Stdio, Child, Output};
+use std::io::{Error, ErrorKind, Result};
+use std::process::{Command, Stdio, Output};
 
 mod with_ext;
 mod boot_ext;
+mod run_ext;
 
 pub use with_ext::WineWithExt;
 pub use boot_ext::WineBootExt;
+pub use run_ext::WineRunExt;
+
+pub use derive_builder::Builder;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum WineArch {
@@ -21,8 +25,8 @@ impl WineArch {
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(arch: &str) -> Option<Self> {
         match arch {
-            "win32" => Some(Self::Win32),
-            "win64" => Some(Self::Win64),
+            "win32" | "x32" | "32" => Some(Self::Win32),
+            "win64" | "x64" | "64" => Some(Self::Win64),
             _ => None
         }
     }
@@ -219,72 +223,19 @@ impl Wine {
         env
     }
 
-    /// Execute some binary using wine
-    /// 
-    /// ```no_run
-    /// use wincompatlib::prelude::*;
-    /// 
-    /// let process = Wine::default().run("/your/executable");
-    /// ```
-    pub fn run<T: Into<PathBuf>>(&self, binary: T) -> Result<Child> {
-        let mut command = Command::new(&self.binary);
-
-        command.arg(binary.into())
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        if let Some(prefix) = &self.prefix {
-            command.env("WINEPREFIX", prefix);
-        }
-
-        if let Some(arch) = self.arch {
-            command.env("WINEARCH", arch.to_str());
-        }
-
-        if let Some(server) = &self.wineserver {
-            command.env("WINESERVER", server);
-        }
-
-        match &self.wineloader {
-            WineLoader::Default => (),
-            WineLoader::Current => {
-                command.env("WINELOADER", &self.binary);
-            },
-            WineLoader::Custom(path) => {
-                command.env("WINELOADER", path);
-            }
-        }
-
-        command.spawn()
-    }
-
     #[cfg(feature = "dxvk")]
     /// Run `Dxvk::install` with parameters from current Wine struct. Will try to use system-wide binaries if some not specified
     /// 
     /// ```no_run
     /// use wincompatlib::prelude::*;
     /// 
-    /// let output = Wine::from_binary("/path/to/wine")
+    /// Wine::from_binary("/path/to/wine")
     ///     .with_arch(WineArch::Win64)
-    ///     .install_dxvk("/path/to/setup_dxvk.sh", "/path/to/prefix")
-    ///     .expect("Failed to install DXVK");
-    /// 
-    /// println!("Installing output: {}", String::from_utf8_lossy(&output.stdout));
+    ///     .install_dxvk("/path/to/dxvk-2.1", InstallParams::default())
+    ///     .expect("Failed to install DXVK 2.1");
     /// ```
-    pub fn install_dxvk<T: Into<PathBuf>>(&self, setup_script: T, prefix: T) -> Result<Output> {
-        super::dxvk::Dxvk::install(
-            setup_script.into(),
-            prefix.into(),
-            self.binary.clone(),
-            self.get_inner_binary("wine64"),
-            self.wineboot.clone().unwrap_or(
-                self.get_inner_binary("wineboot")
-            ),
-            self.wineserver.clone().unwrap_or(
-                self.get_inner_binary("wineserver")
-            )
-        )
+    pub fn install_dxvk<T: Into<PathBuf>>(&self, dxvk_folder: T, params: super::dxvk::InstallParams) -> Result<()> {
+        super::dxvk::Dxvk::install(self, dxvk_folder, params)
     }
 
     #[cfg(feature = "dxvk")]
@@ -293,25 +244,12 @@ impl Wine {
     /// ```no_run
     /// use wincompatlib::prelude::*;
     /// 
-    /// let output = Wine::from_binary("/path/to/wine")
+    /// Wine::from_binary("/path/to/wine")
     ///     .with_arch(WineArch::Win64)
-    ///     .uninstall_dxvk("/path/to/setup_dxvk.sh", "/path/to/prefix")
+    ///     .uninstall_dxvk(InstallParams::default())
     ///     .expect("Failed to uninstall DXVK");
-    /// 
-    /// println!("Uninstalling output: {}", String::from_utf8_lossy(&output.stdout));
     /// ```
-    pub fn uninstall_dxvk<T: Into<PathBuf>>(&self, setup_script: T, prefix: T) -> Result<Output> {
-        super::dxvk::Dxvk::uninstall(
-            setup_script.into(),
-            prefix.into(),
-            self.binary.clone(),
-            self.get_inner_binary("wine64"),
-            self.wineboot.clone().unwrap_or(
-                self.get_inner_binary("wineboot")
-            ),
-            self.wineserver.clone().unwrap_or(
-                self.get_inner_binary("wineserver")
-            )
-        )
+    pub fn uninstall_dxvk(&self, params: super::dxvk::InstallParams) -> Result<()> {
+        super::dxvk::Dxvk::uninstall(self, params)
     }
 }

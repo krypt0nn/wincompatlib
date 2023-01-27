@@ -1,4 +1,4 @@
-# Wincompatlib
+<h1 align="center">🦀 wincompatlib</h1>
 
 Rust library that contains a set of interfaces to run windows applications on unix-like systems using Wine
 
@@ -11,6 +11,11 @@ use wincompatlib::prelude::*;
 
 // Run cmd.exe using system wine
 Wine::default().run("cmd");
+
+// Ask for cmd's help
+let child = Wine::default().run_args(["cmd", "/c", "help"]).unwrap();
+
+println!("Help: {}", &String::from_utf8_lossy(&child.wait_with_output().unwrap()));
 ```
 
 ### Print wine version
@@ -38,7 +43,7 @@ wine.stop_processes(true);
 ### Print DXVK version
 
 ```rust
-// Requires "dxvk" feature
+// Requires "dxvk" feature (enabled by default)
 use wincompatlib::prelude::*;
 
 match Dxvk::get_version("/path/to/prefix") {
@@ -51,13 +56,14 @@ match Dxvk::get_version("/path/to/prefix") {
 ### Install DXVK
 
 ```rust
-// Requires "dxvk" feature
+// Requires "dxvk" feature (enabled by default)
 use wincompatlib::prelude::*;
 
-// Same for uninstall_dxvk
-let output = Wine::default()
-    .install_dxvk("/path/to/setup_dxvk.sh", "/path/to/prefix")
+Wine::default()
+    .install_dxvk("/path/to/dxvk-x.y.z", InstallParams::default())
     .expect("Failed to install DXVK");
-
-println!("Installing output: {}", String::from_utf8_lossy(&output.stdout));
 ```
+
+Author: [Nikita Podvirnyy](https://vk.com/technomindlp)
+
+Licensed under [MIT](LICENSE)
