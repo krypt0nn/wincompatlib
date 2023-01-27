@@ -64,6 +64,6 @@ Wine::default()
     .expect("Failed to install DXVK");
 ```
 
-Author: [Nikita Podvirnyy](https://vk.com/technomindlp)
+Author: [Nikita Podvirnyy](https://vk.com/krypt0nn)
 
 Licensed under [MIT](LICENSE)
