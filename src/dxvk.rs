@@ -150,36 +150,96 @@ impl Dxvk {
     /// }
     /// ```
     pub fn get_version<T: Into<PathBuf>>(prefix: T) -> Result<Option<String>> {
-        let prefix: PathBuf = prefix.into();
+        fn get_version(bytes: &[u8]) -> Option<String> {
+            // 14 because [DXVK:] [\32] [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
+            // [version number] takes at least 1 byte so ..
+            for i in 0..bytes.len() - 14 {
+                if bytes[i]     == b'D' && bytes[i + 1] == b'X' && bytes[i + 2] == b'V' && bytes[i + 3] == b'K' &&
+                   bytes[i + 4] == b':' && bytes[i + 5] == 32   && bytes[i + 6] == 0    && bytes[i + 7] == b'v'
+                {
+                    let mut version = String::new();
 
-        let bytes = match std::fs::read(prefix.join("drive_c/windows/system32/d3d11.dll")) {
-            Ok(bytes) => bytes,
-            Err(_) => std::fs::read(prefix.join("drive_c/windows/system32/dxgi.dll"))?
-        };
+                    for byte in bytes.iter().skip(i + 8) {
+                        if *byte != 0 {
+                            version.push((*byte).into());
+                        }
 
-        // 14 because [DXVK:] [\32] [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
-        // [version number] takes at least 1 byte so ..
-        for i in 0..bytes.len() - 14 {
-            if bytes[i]     == b'D' && bytes[i + 1] == b'X' && bytes[i + 2] == b'V' && bytes[i + 3] == b'K' &&
-               bytes[i + 4] == b':' && bytes[i + 5] == 32   && bytes[i + 6] == 0    && bytes[i + 7] == b'v'
-            {
-                let mut version = String::new();
-
-                for byte in bytes.iter().skip(i + 8) {
-                    if *byte != 0 {
-                        version.push((*byte).into());
+                        else {
+                            break;
+                        }
                     }
 
-                    else {
-                        break;
-                    }
+                    return Some(version);
                 }
-
-                return Ok(Some(version));
             }
+
+            None
         }
 
-        Ok(None)
+        let prefix: PathBuf = prefix.into();
+
+        // [DXVK:] hints offsets in 2.1 (~)
+        // d3d11: 2789063
+        //  dxgi: 1881252
+        // 
+        // We'll try to find the version sequence starting from closest approximated address,
+        // then extending this sequence in both directions untill we reach whole file size
+        // 
+        // Bytes sequence:
+        // 
+        // 1       2   3 4   5       6
+        // [       [   [ ]   ]       ]
+        //             ^ offset_close_start
+        //               ^ offset_close_end
+        //         ^ offset_wide_start
+        //                   ^ offset_wide_end
+        // ^ start
+        //                           ^ end
+
+        let offset_close_start;
+        let offset_close_end;
+
+        let offset_wide_start;
+        let offset_wide_end;
+
+        let bytes = match std::fs::read(prefix.join("drive_c/windows/system32/d3d11.dll")) {
+            Ok(bytes) => {
+                offset_close_start = 2500000;
+                offset_close_end   = 2900000;
+
+                offset_wide_start = 2000000;
+                offset_wide_end   = 3200000;
+
+                bytes
+            }
+
+            Err(_) => {
+                offset_close_start = 1600000;
+                offset_close_end   = 2000000;
+
+                offset_wide_start = 1000000;
+                offset_wide_end   = 2300000;
+
+                std::fs::read(prefix.join("drive_c/windows/system32/dxgi.dll"))?
+            }
+        };
+
+        if bytes.len() < offset_wide_end {
+            return Ok(get_version(&bytes));
+        }
+
+        let version = get_version(&bytes[offset_close_start..offset_close_end])    //           3 __ 4
+            .unwrap_or_else(|| get_version(&bytes[offset_wide_start..offset_close_start])  //      2 __ 3    |
+            .unwrap_or_else(|| get_version(&bytes[offset_close_end..offset_wide_end])      //      |         4 __ 5
+            .unwrap_or_else(|| get_version(&bytes[..offset_wide_start])                    // 1 __ 2              |
+            .unwrap_or_else(|| get_version(&bytes[offset_wide_end..])                      //                     5 __ 6
+            .unwrap_or_default()))));
+
+        if version.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(version))
+        }
     }
 
     /// Install DXVK to wine prefix
