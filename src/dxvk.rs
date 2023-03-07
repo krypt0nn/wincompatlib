@@ -154,9 +154,7 @@ impl Dxvk {
             // 14 because [DXVK:] [\32] [\0] [v] [version number] [.] [version number] [.] [version number] [\0]
             // [version number] takes at least 1 byte so ..
             for i in 0..bytes.len() - 14 {
-                if bytes[i]     == b'D' && bytes[i + 1] == b'X' && bytes[i + 2] == b'V' && bytes[i + 3] == b'K' &&
-                   bytes[i + 4] == b':' && bytes[i + 5] == 32   && bytes[i + 6] == 0    && bytes[i + 7] == b'v'
-                {
+                if bytes[i..=i + 7] == [b'D', b'X', b'V', b'K', b':', 32, 0, b'v'] {
                     let mut version = String::new();
 
                     for byte in bytes.iter().skip(i + 8) {

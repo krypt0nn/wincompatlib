@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::{OsString, OsStr};
 use std::os::unix::prelude::OsStringExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::io::{Error, ErrorKind, Result};
 use std::process::{Command, Stdio, Output};
 
@@ -23,6 +23,7 @@ pub enum WineArch {
 
 impl WineArch {
     #[allow(clippy::should_implement_trait)]
+    #[inline]
     pub fn from_str(arch: &str) -> Option<Self> {
         match arch {
             "win32" | "x32" | "32" => Some(Self::Win32),
@@ -31,6 +32,7 @@ impl WineArch {
         }
     }
 
+    #[inline]
     pub fn to_str(&self) -> &str {
         match self {
             Self::Win32 => "win32",
@@ -84,7 +86,15 @@ impl Default for Wine {
 }
 
 impl Wine {
-    pub fn new<T: Into<PathBuf>>(binary: T, prefix: Option<T>, arch: Option<WineArch>, wineboot: Option<T>, wineserver: Option<T>, wineloader: WineLoader) -> Self {
+    #[inline]
+    pub fn new<T: Into<PathBuf>>(
+        binary: T,
+        prefix: Option<T>,
+        arch: Option<WineArch>,
+        wineboot: Option<T>,
+        wineserver: Option<T>,
+        wineloader: WineLoader
+    ) -> Self {
         Wine {
             binary: binary.into(),
             prefix: prefix.map(|value| value.into()),
@@ -95,6 +105,7 @@ impl Wine {
         }
     }
 
+    #[inline]
     pub fn from_binary<T: Into<PathBuf>>(binary: T) -> Self {
         Self::new(binary, None, None, None, None, WineLoader::default())
     }
@@ -120,23 +131,24 @@ impl Wine {
     }
 
     /// Get wine binary path
-    pub fn binary(&self) -> PathBuf {
-        self.binary.clone()
+    #[inline]
+    pub fn binary(&self) -> &Path {
+        self.binary.as_path()
     }
 
-    fn get_inner_binary(&self, binary: &str) -> PathBuf {
+    fn get_inner_binary(&self, binary: &str) -> Option<PathBuf> {
         if let Some(parent) = self.binary.parent() {
             let binary_path = parent.join(binary);
 
             if binary_path.exists() {
-                return binary_path;
+                return Some(binary_path);
             }
         }
 
-        PathBuf::from(binary)
+        None
     }
 
-    /// Get path to wineboot binary, or "wineboot" if not specified
+    /// Get path to wineboot binary, or current wine binary path if not specified
     /// 
     /// If wine binary is specified (so not system), then function will try to find wineboot binary inside of this wine's folder
     /// 
@@ -145,12 +157,14 @@ impl Wine {
     /// 
     /// use std::path::PathBuf;
     /// 
-    /// assert_eq!(Wine::default().wineboot(), PathBuf::from("wineboot"));
-    /// assert_eq!(Wine::from_binary("/wine_build/wine").wineboot(), PathBuf::from("/wine_build/wineboot"));
-    /// assert_eq!(Wine::from_binary("/wine_build_without_wineboot/wine").wineboot(), PathBuf::from("wineboot"));
+    /// assert_eq!(Wine::from_binary("wine_build_with_wineboot/wine").wineboot(), PathBuf::from("wine_build_with_wineboot/wineboot"));
+    /// assert_eq!(Wine::from_binary("wine_build_without_wineboot/wine").wineboot(), PathBuf::from("wine_build_without_wineboot/wine"));
     /// ```
+    #[inline]
     pub fn wineboot(&self) -> PathBuf {
-        self.wineboot.clone().unwrap_or_else(|| self.get_inner_binary("wineboot"))
+        self.wineboot.clone()
+            .unwrap_or_else(|| self.get_inner_binary("wineboot")
+            .unwrap_or_else(|| self.binary.clone()))
     }
 
     /// Get path to wineserver binary, or "wineserver" if not specified
@@ -162,20 +176,23 @@ impl Wine {
     /// 
     /// use std::path::PathBuf;
     /// 
-    /// assert_eq!(Wine::default().wineserver(), PathBuf::from("wineserver"));
-    /// assert_eq!(Wine::from_binary("/wine_build/wine").wineserver(), PathBuf::from("/wine_build/wineserver"));
-    /// assert_eq!(Wine::from_binary("/wine_build_without_wineserver/wine").wineserver(), PathBuf::from("wineserver"));
+    /// assert_eq!(Wine::from_binary("wine_build_with_wineserver/wine").wineserver(), PathBuf::from("wine_build_with_wineserver/wineserver"));
+    /// assert_eq!(Wine::from_binary("wine_build_without_wineserver/wine").wineserver(), PathBuf::from("wineserver"));
     /// ```
+    #[inline]
     pub fn wineserver(&self) -> PathBuf {
-        self.wineserver.clone().unwrap_or_else(|| self.get_inner_binary("wineserver"))
+        self.wineserver.clone()
+            .unwrap_or_else(|| self.get_inner_binary("wineserver")
+            .unwrap_or_else(|| PathBuf::from("wineserver")))
     }
 
     /// Get path to wine binary, or "wine" if not specified (`WineLoader::Default`)
-    pub fn wineloader(&self) -> PathBuf {
+    #[inline]
+    pub fn wineloader(&self) -> &Path {
         match &self.wineloader {
-            WineLoader::Default => PathBuf::from("wine"),
-            WineLoader::Current => self.binary.clone(),
-            WineLoader::Custom(path) => path.clone()
+            WineLoader::Default => Path::new("wine"),
+            WineLoader::Current => self.binary.as_path(),
+            WineLoader::Custom(path) => path
         }
     }
 
@@ -234,6 +251,7 @@ impl Wine {
     ///     .install_dxvk("/path/to/dxvk-2.1", InstallParams::default())
     ///     .expect("Failed to install DXVK 2.1");
     /// ```
+    #[inline]
     pub fn install_dxvk<T: Into<PathBuf>>(&self, dxvk_folder: T, params: super::dxvk::InstallParams) -> Result<()> {
         super::dxvk::Dxvk::install(self, dxvk_folder, params)
     }
@@ -249,6 +267,7 @@ impl Wine {
     ///     .uninstall_dxvk(InstallParams::default())
     ///     .expect("Failed to uninstall DXVK");
     /// ```
+    #[inline]
     pub fn uninstall_dxvk(&self, params: super::dxvk::InstallParams) -> Result<()> {
         super::dxvk::Dxvk::uninstall(self, params)
     }
