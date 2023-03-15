@@ -173,7 +173,7 @@ impl WineBootExt for Proton {
 
     /// Create (or update existing) wine prefix. Runs `wineboot -u` command
     #[inline]
-    fn update_prefix<T: Into<PathBuf>>(&self, path: T) -> Result<Output> {
+    fn update_prefix<T: Into<PathBuf>>(&self, path: Option<T>) -> Result<Output> {
         self.wine.update_prefix(path)
     }
 

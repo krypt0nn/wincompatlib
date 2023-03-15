@@ -265,7 +265,7 @@ impl Dxvk {
 
                 // Verify and repair wine prefix if needed (and asked to)
                 if params.repair_dlls {
-                    let output = wine.update_prefix(prefix)?;
+                    let output = wine.update_prefix(Some(prefix))?;
 
                     if !output.status.success() {
                         return Err(Error::new(ErrorKind::Other, "Failed to repair wine prefix: ".to_string() + &String::from_utf8_lossy(&output.stderr)));
@@ -339,7 +339,7 @@ impl Dxvk {
 
                 // Verify and repair wine prefix if needed (and asked to)
                 if params.repair_dlls {
-                    let output = wine.update_prefix(prefix)?;
+                    let output = wine.update_prefix(Some(prefix))?;
 
                     if !output.status.success() {
                         return Err(Error::new(ErrorKind::Other, "Failed to repair wine prefix: ".to_string() + &String::from_utf8_lossy(&output.stderr)));

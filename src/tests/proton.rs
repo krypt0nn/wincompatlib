@@ -1,20 +1,16 @@
 use std::process::Command;
-use std::ffi::OsString;
-use std::str::FromStr;
 
 use serial_test::*;
 
 use crate::prelude::*;
 use super::*;
 
-#[cfg(feature = "wine-proton")]
 const CUSTOM_PROTON: (&str, &str) = ("GE-Proton7-50", "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton7-50/GE-Proton7-50.tar.gz");
 
 pub fn get_prefix_dir() -> PathBuf {
     get_test_dir().join("proton-prefix")
 }
 
-#[cfg(feature = "wine-proton")]
 fn get_custom_proton() -> Proton {
     let test_dir = get_test_dir();
 
@@ -62,7 +58,7 @@ fn create_prefix() -> std::io::Result<()> {
     let wine_prefix = proton.wine().to_owned().prefix.unwrap();
 
     // Create wine prefix
-    proton.update_prefix(&wine_prefix)?;
+    proton.update_prefix::<&str>(None)?;
 
     assert!(wine_prefix.join("drive_c/windows/system32/drivers").exists());
 
@@ -70,7 +66,7 @@ fn create_prefix() -> std::io::Result<()> {
     std::fs::remove_dir_all(wine_prefix.join("drive_c/windows/system32/drivers"))?;
 
     // Try to repair it
-    proton.update_prefix(&wine_prefix)?;
+    proton.update_prefix::<&str>(None)?;
 
     assert!(wine_prefix.join("drive_c/windows/system32/drivers").exists());
 
@@ -82,7 +78,7 @@ fn create_prefix() -> std::io::Result<()> {
 fn run_and_kill_notepad() -> std::io::Result<()> {
     let proton = get_custom_proton();
 
-    let notepad = proton.run("notepad")?;
+    let notepad = proton.run_in_prefix("notepad")?;
 
     std::thread::sleep(std::time::Duration::from_secs(1));
 
@@ -90,9 +86,10 @@ fn run_and_kill_notepad() -> std::io::Result<()> {
     proton.stop_processes(true)?;
     proton.end_session()?;
 
-    dbg!(notepad.wait_with_output());
+    dbg!(notepad.wait_with_output()?);
+    panic!();
 
-    // assert!(notepad.wait_with_output()?.status.success());
+    assert!(notepad.wait_with_output()?.status.success());
 
     Ok(())
 }

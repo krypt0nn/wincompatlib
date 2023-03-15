@@ -1,6 +1,6 @@
 [package]
 name = "wincompatlib"
-version = "0.3.2"
+version = "0.4.0"
 description = "Set of interfaces to run windows applications on unix-like systems using Wine"
 authors = ["Nikita Podvirnyy <suimin.tu.mu.ga.mi@gmail.com>"]
 license = "MIT"
@@ -18,4 +18,4 @@ wine-proton = ["wine-bundles"]
 all = ["dxvk", "wine-bundles", "wine-proton"]
 
 # Used for test purposes
-# default = ["all"]
+default = ["all"]
