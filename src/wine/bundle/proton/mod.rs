@@ -115,28 +115,15 @@ impl Proton {
 impl WineWithExt for Proton {
     /// Add path to proton directory
     /// 
-    /// This method will try to automatically update both `self.proton_prefix` and `wine.prefix`
-    /// 
-    /// By default `prefix` should point to proton prefix, so wine prefix will be in `prefix/pfx`
+    /// `prefix` should point to proton prefix, so wine prefix will be in `prefix/pfx`
+    #[inline]
     fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self {
         let prefix = prefix.into();
 
-        // `prefix` is proton prefix, `prefix/pfx` is wine prefix (default)
-        if !prefix.exists() || prefix.join("pfx").exists() || !prefix.join("drive_c").exists() {
-            Self {
-                wine: self.wine.with_prefix(prefix.join("pfx")),
-                proton_prefix: Some(prefix),
-                ..self
-            }
-        }
-
-        // `prefix` is wine prefix, `prefix/../` is proton prefix (reversed order)
-        else {
-            Self {
-                proton_prefix: prefix.parent().map(|path| path.to_path_buf()),
-                wine: self.wine.with_prefix(prefix),
-                ..self
-            }
+        Self {
+            wine: self.wine.with_prefix(prefix.join("pfx")),
+            proton_prefix: Some(prefix),
+            ..self
         }
     }
 
