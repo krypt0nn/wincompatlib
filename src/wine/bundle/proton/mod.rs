@@ -10,6 +10,7 @@ mod wait_for_exit_and_run_ext;
 pub use run_in_prefix_ext::RunInPrefixExt;
 pub use wait_for_exit_and_run_ext::WaitForExitAndRunExt;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Proton {
     path: PathBuf,
     wine: Wine,
