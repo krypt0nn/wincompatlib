@@ -18,4 +18,4 @@ wine-proton = ["wine-bundles"]
 all = ["dxvk", "wine-bundles", "wine-proton"]
 
 # Used for test purposes
-default = ["all"]
+# default = ["all"]
