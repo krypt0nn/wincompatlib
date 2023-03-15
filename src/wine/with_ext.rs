@@ -5,7 +5,7 @@ use super::*;
 pub trait WineWithExt {
     fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self;
     fn with_arch(self, arch: WineArch) -> Self;
-    fn with_boot<T: Into<PathBuf>>(self, boot: T) -> Self;
+    fn with_boot(self, boot: WineBoot) -> Self;
     fn with_server<T: Into<PathBuf>>(self, server: T) -> Self;
     fn with_loader(self, loader: WineLoader) -> Self;
 }
@@ -49,12 +49,12 @@ impl WineWithExt for Wine {
     /// use wincompatlib::prelude::*;
     /// 
     /// let wine = Wine::from_binary("wine")
-    ///     .with_boot("wineboot");
+    ///     .with_boot(WineBoot::Unix(std::path::PathBuf::from("path/to/wineboot")));
     /// ```
     #[inline]
-    fn with_boot<T: Into<PathBuf>>(self, boot: T) -> Self {
+    fn with_boot(self, boot: WineBoot) -> Self {
         Self {
-            wineboot: Some(boot.into()),
+            wineboot: Some(boot),
             ..self
         }
     }

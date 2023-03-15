@@ -13,7 +13,8 @@ pub use with_ext::WineWithExt;
 pub use boot_ext::WineBootExt;
 pub use run_ext::WineRunExt;
 
-pub use derive_builder::Builder;
+#[cfg(feature = "wine-bundles")]
+pub mod bundle;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum WineArch {
@@ -41,6 +42,33 @@ impl WineArch {
     }
 }
 
+impl Default for WineArch {
+    #[inline]
+    fn default() -> Self {
+        Self::Win64
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WineBoot {
+    /// Path to `wineboot` execution script (packaged with some custom wine builds)
+    Unix(PathBuf),
+
+    /// Path to `wineboot.exe` executable (available in wine prefix / lib folder)
+    Windows(PathBuf)
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<PathBuf> for WineBoot {
+    #[inline]
+    fn into(self) -> PathBuf {
+        match self {
+            WineBoot::Unix(path) |
+            WineBoot::Windows(path) => path
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WineLoader {
     /// Set `WINELOADER` variable as binary specified in `Wine` struct
@@ -54,6 +82,7 @@ pub enum WineLoader {
 }
 
 impl Default for WineLoader {
+    #[inline]
     fn default() -> Self {
         Self::Default
     }
@@ -70,7 +99,7 @@ pub struct Wine {
     pub arch: Option<WineArch>,
 
     /// Path to wineboot binary
-    pub wineboot: Option<PathBuf>,
+    pub wineboot: Option<WineBoot>,
 
     /// Specifies `WINESERVER` variable
     pub wineserver: Option<PathBuf>,
@@ -91,7 +120,7 @@ impl Wine {
         binary: T,
         prefix: Option<T>,
         arch: Option<WineArch>,
-        wineboot: Option<T>,
+        wineboot: Option<WineBoot>,
         wineserver: Option<T>,
         wineloader: WineLoader
     ) -> Self {
@@ -99,7 +128,7 @@ impl Wine {
             binary: binary.into(),
             prefix: prefix.map(|value| value.into()),
             arch,
-            wineboot: wineboot.map(|value| value.into()),
+            wineboot,
             wineserver: wineserver.map(|value| value.into()),
             wineloader
         }
@@ -138,17 +167,41 @@ impl Wine {
 
     fn get_inner_binary(&self, binary: &str) -> Option<PathBuf> {
         if let Some(parent) = self.binary.parent() {
+            // [wine folder]/bin/[binary]
             let binary_path = parent.join(binary);
 
             if binary_path.exists() {
                 return Some(binary_path);
+            }
+
+            if let Some(parent) = parent.parent() {
+                let windows = match self.arch.unwrap_or_default() {
+                    WineArch::Win32 => parent.join("lib/wine/i386-windows"),
+                    WineArch::Win64 => parent.join("lib64/wine/x86_64-windows"),
+                };
+
+                // [wine folder]/lib/wine/i386-windows/[binary]
+                // [wine folder]/lib64/wine/x86_64-windows/[binary]
+                let binary_path = windows.join(binary);
+
+                if binary_path.exists() {
+                    return Some(binary_path);
+                }
+
+                // [wine folder]/lib/wine/i386-windows/[binary].exe
+                // [wine folder]/lib64/wine/x86_64-windows/[binary].exe
+                let binary_path = windows.join(format!("{}.exe", binary));
+
+                if binary_path.exists() {
+                    return Some(binary_path);
+                }
             }
         }
 
         None
     }
 
-    /// Get path to wineboot binary, or current wine binary path if not specified
+    /// Try to get path to wineboot binary
     /// 
     /// If wine binary is specified (so not system), then function will try to find wineboot binary inside of this wine's folder
     /// 
@@ -157,14 +210,38 @@ impl Wine {
     /// 
     /// use std::path::PathBuf;
     /// 
-    /// assert_eq!(Wine::from_binary("wine_build_with_wineboot/wine").wineboot(), PathBuf::from("wine_build_with_wineboot/wineboot"));
-    /// assert_eq!(Wine::from_binary("wine_build_without_wineboot/wine").wineboot(), PathBuf::from("wine_build_without_wineboot/wine"));
+    /// // Build with wineboot script
+    /// assert_eq!(Wine::from_binary("wine_folder/bin/wine").wineboot(), Some(WineBoot::Unix(PathBuf::from("wine_folder/bin/wineboot"))));
+    /// 
+    /// // Build without wineboot script, but with wineboot.exe file
+    /// assert_eq!(Wine::from_binary("wine_folder/bin/wine").wineboot(), Some(WineBoot::Windows(PathBuf::from("wine_folder/lib64/wine/x86_64-windows/wineboot.exe"))));
+    /// 
+    /// // Build without wineboot script and wineboot.exe file, but this file exists in wine prefix
+    /// assert_eq!(Wine::from_binary("wine_folder/bin/wine").with_prefix("path/to/prefix").wineboot(), Some(WineBoot::Windows(PathBuf::from("path/to/prefix/drive_c/windows/system32/wineboot.exe"))));
+    /// 
+    /// // Builds without any wineboot version
+    /// assert_eq!(Wine::from_binary("wine_folder/bin/wine").wineboot(), None);
     /// ```
-    #[inline]
-    pub fn wineboot(&self) -> PathBuf {
-        self.wineboot.clone()
-            .unwrap_or_else(|| self.get_inner_binary("wineboot")
-            .unwrap_or_else(|| self.binary.clone()))
+    pub fn wineboot(&self) -> Option<WineBoot> {
+        if let Some(wineboot) = &self.wineboot {
+            return Some(wineboot.to_owned());
+        }
+
+        if let Some(wineboot) = self.get_inner_binary("wineboot") {
+            if let Some(ext) = wineboot.extension() {
+                if ext == "exe" {
+                    return Some(WineBoot::Windows(wineboot));
+                }
+            }
+
+            return Some(WineBoot::Unix(wineboot));
+        }
+
+        self.prefix.as_ref().and_then(|prefix| {
+            let wineboot = prefix.join("drive_c/windows/system32/wineboot.exe");
+
+            wineboot.exists().then_some(WineBoot::Windows(wineboot))
+        })
     }
 
     /// Get path to wineserver binary, or "wineserver" if not specified
@@ -176,7 +253,10 @@ impl Wine {
     /// 
     /// use std::path::PathBuf;
     /// 
+    /// // Build with wineserver
     /// assert_eq!(Wine::from_binary("wine_build_with_wineserver/wine").wineserver(), PathBuf::from("wine_build_with_wineserver/wineserver"));
+    /// 
+    /// // Build without wineserver
     /// assert_eq!(Wine::from_binary("wine_build_without_wineserver/wine").wineserver(), PathBuf::from("wineserver"));
     /// ```
     #[inline]
@@ -198,6 +278,13 @@ impl Wine {
 
     /// Get environment variables map from current struct's values
     /// 
+    /// Can contain (if specified in current struct):
+    /// 
+    /// - `WINEPREFIX`
+    /// - `WINEARCH`
+    /// - `WINESERVER`
+    /// - `WINELOADER`
+    /// 
     /// ```
     /// use wincompatlib::prelude::*;
     /// 
@@ -217,10 +304,7 @@ impl Wine {
         }
 
         if let Some(arch) = self.arch {
-            env.insert("WINEARCH", match arch {
-                WineArch::Win32 => OsString::from("win32"),
-                WineArch::Win64 => OsString::from("win64")
-            });
+            env.insert("WINEARCH", arch.to_str().into());
         }
 
         if let Some(server) = &self.wineserver {

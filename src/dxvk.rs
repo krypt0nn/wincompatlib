@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::io::{Error, ErrorKind, Result};
 
-use derive_builder::Builder;
-
 use super::wine::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -11,7 +9,7 @@ pub enum Arch {
     Win64
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Builder)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallParams {
     /// Install DXGI
     /// 
@@ -226,7 +224,7 @@ impl Dxvk {
             return Ok(get_version(&bytes));
         }
 
-        let version = get_version(&bytes[offset_close_start..offset_close_end])    //           3 __ 4
+        let version = get_version(&bytes[offset_close_start..offset_close_end])            //           3 __ 4
             .unwrap_or_else(|| get_version(&bytes[offset_wide_start..offset_close_start])  //      2 __ 3    |
             .unwrap_or_else(|| get_version(&bytes[offset_close_end..offset_wide_end])      //      |         4 __ 5
             .unwrap_or_else(|| get_version(&bytes[..offset_wide_start])                    // 1 __ 2              |

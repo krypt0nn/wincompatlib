@@ -64,37 +64,14 @@ impl WineRunExt for Wine {
         K: IntoIterator<Item = (S, S)>,
         S: AsRef<OsStr>
     {
-        let mut command = Command::new(&self.binary);
-
-        command
+        Command::new(&self.binary)
             .args(args)
+            .envs(self.get_envs())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        if let Some(prefix) = &self.prefix {
-            command.env("WINEPREFIX", prefix);
-        }
-
-        if let Some(arch) = self.arch {
-            command.env("WINEARCH", arch.to_str());
-        }
-
-        if let Some(server) = &self.wineserver {
-            command.env("WINESERVER", server);
-        }
-
-        match &self.wineloader {
-            WineLoader::Default => (),
-            WineLoader::Current => {
-                command.env("WINELOADER", &self.binary);
-            },
-            WineLoader::Custom(path) => {
-                command.env("WINELOADER", path);
-            }
-        }
-
-        command.envs(envs).spawn()
+            .stderr(Stdio::piped())
+            .envs(envs)
+            .spawn()
     }
 
     /// Get unix path to the windows folder in the wine prefix
@@ -107,18 +84,15 @@ impl WineRunExt for Wine {
     fn winepath(&self, path: &str) -> Result<PathBuf> {
         let output = self.run_args(["winepath", "-u", path])?.wait_with_output()?;
 
-        match output.status.success() {
-            true => {
-                // It adds "\n" in the end which is 1 byte long
-                let path = PathBuf::from(OsString::from_vec(output.stdout[..output.stdout.len() - 1].to_vec()));
+        let true = output.status.success() else {
+            return Err(Error::new(ErrorKind::Other, "Failed to find wine path: ".to_string() + &String::from_utf8_lossy(&output.stdout)));
+        };
 
-                match path.exists() {
-                    true  => Ok(path),
-                    false => Err(Error::new(ErrorKind::Other, "Wine path is not correct: ".to_string() + &String::from_utf8_lossy(&output.stdout)))
-                }
-            }
+        // It adds "\n" in the end which is 1 byte long
+        let path = PathBuf::from(OsString::from_vec(output.stdout[..output.stdout.len() - 1].to_vec()));
 
-            false => Err(Error::new(ErrorKind::Other, "Failed to find wine path: ".to_string() + &String::from_utf8_lossy(&output.stdout)))
-        }
+        path.exists()
+            .then_some(Ok(path))
+            .unwrap_or_else(|| Err(Error::new(ErrorKind::Other, "Wine path is not correct: ".to_string() + &String::from_utf8_lossy(&output.stdout))))
     }
 }

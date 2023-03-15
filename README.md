@@ -2,6 +2,14 @@
 
 Rust library that contains a set of interfaces to run windows applications on unix-like systems using Wine
 
+Features:
+
+- Different wine builds
+- Can create wine prefixes & run applications
+- Support DXVK installing, uninstalling, applied version parsing (`dxvk`)
+- Has bundles system for special wine builds (`wine-bundles`)
+- Has Proton support (`wine-proton`)
+
 ## Examples
 
 ### Run cmd.exe using system wine
