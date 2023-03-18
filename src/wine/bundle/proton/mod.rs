@@ -171,10 +171,65 @@ impl WineBootExt for Proton {
         self.wine.wineboot_command()
     }
 
-    /// Create (or update existing) wine prefix. Runs `wineboot -u` command
-    #[inline]
+    /// Create (or update existing) wine prefix.
+    /// Runs `wineboot -u` command and creates `version` and `tracked_files` files
+    /// in proton prefix
     fn update_prefix<T: Into<PathBuf>>(&self, path: Option<T>) -> Result<Output> {
-        self.wine.update_prefix(path)
+        // Update wine prefix
+        let output = self.wine.update_prefix(path)?;
+
+        // This has to be Some unless library's user really knows what he does
+        // in this case I'm nobody to stop him
+        if let Some(path) = &self.proton_prefix {
+            // Create `version` file in proton prefix based on `CURRENT_PREFIX_VERSION="..."` in `proton` script
+            let mut found_version = false;
+
+            if let Ok(proton) = std::fs::read_to_string(self.path.join("proton")) {
+                if let Some(version) = proton.find("CURRENT_PREFIX_VERSION=\"") {
+                    if let Some(version_end) = proton[version + 24..].find('"') {
+                        let version = &proton[version + 24..version + 24 + version_end];
+
+                        if !version.is_empty() {
+                            std::fs::write(path.join("version"), version)?;
+
+                            found_version = true;
+                        }
+                    }
+                }
+            }
+
+            // If version wasn't found - just copy `version` file to proton prefix
+            // Generally speaking I should try to parse correct version from this file
+            // but GE-Proton dev messed up here in some builds (mistyped version as "GE=Proton..")
+            // so I don't even try to do it here
+            if !found_version && self.path.join("version").exists() {
+                std::fs::copy(self.path.join("version"), path.join("version"))?;
+            }
+
+            // Copy `tracked_files` to proton prefix if this file exists
+            if self.path.join("tracked_files").exists() {
+                std::fs::copy(self.path.join("tracked_files"), path.join("tracked_files"))?;
+            }
+
+            // Otherwise try to find `proton_[version]_tracked_files` file in proton build folder
+            else if let Ok(files) = std::fs::read_dir(&self.path) {
+                for file in files.into_iter().flatten() {
+                    let name = file.file_name();
+
+                    // Minimal filename length requirements
+                    if name.len() > 21 {
+                        let name = name.to_string_lossy();
+
+                        // Copy `tracked_files` to proton prefix
+                        if &name[..7] == "proton_" && &name[name.len() - 14..] == "_tracked_files" {
+                            std::fs::copy(file.path(), path.join("tracked_files"))?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(output)
     }
 
     /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`

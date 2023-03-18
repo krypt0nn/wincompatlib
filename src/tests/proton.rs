@@ -78,16 +78,16 @@ fn create_prefix() -> std::io::Result<()> {
 fn run_and_kill_notepad() -> std::io::Result<()> {
     let proton = get_custom_proton();
 
-    let notepad = proton.run_in_prefix("notepad")?;
+    // Never works well so..
+    // let notepad = proton.run_in_prefix("notepad")?;
+
+    let notepad = proton.wine().run("notepad")?;
 
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     // Sometimes doesn't stop notepad process so I'm also ending wineboot session here
     proton.stop_processes(true)?;
     proton.end_session()?;
-
-    dbg!(notepad.wait_with_output()?);
-    panic!();
 
     assert!(notepad.wait_with_output()?.status.success());
 
