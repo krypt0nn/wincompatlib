@@ -58,7 +58,7 @@ fn create_prefix() -> std::io::Result<()> {
     let wine_prefix = proton.wine().to_owned().prefix.unwrap();
 
     // Create wine prefix
-    proton.update_prefix::<&str>(None)?;
+    proton.update_prefix(None::<&str>)?;
 
     assert!(wine_prefix.join("drive_c/windows/system32/drivers").exists());
 
@@ -66,7 +66,7 @@ fn create_prefix() -> std::io::Result<()> {
     std::fs::remove_dir_all(wine_prefix.join("drive_c/windows/system32/drivers"))?;
 
     // Try to repair it
-    proton.update_prefix::<&str>(None)?;
+    proton.update_prefix(None::<&str>)?;
 
     assert!(wine_prefix.join("drive_c/windows/system32/drivers").exists());
 

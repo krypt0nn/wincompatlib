@@ -1,11 +1,11 @@
-use std::path::PathBuf;
 use std::io::{Error, ErrorKind};
 
 use super::*;
 
 pub trait WineBootExt {
     fn wineboot_command(&self) -> Command;
-    fn update_prefix<T: Into<PathBuf>>(&self, path: Option<T>) -> Result<Output>;
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
     fn stop_processes(&self, force: bool) -> Result<Output>;
     fn restart(&self) -> Result<Output>;
     fn shutdown(&self) -> Result<Output>;
@@ -36,7 +36,54 @@ impl WineBootExt for Wine {
         }
     }
 
-    /// Create (or update existing) wine prefix. Runs `wineboot -u` command
+    /// Initialize wine prefix. Runs `wineboot -i` command
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// Wine::default()
+    ///     .init_prefix(Some("/path/to/prefix"))
+    ///     .expect("Failed to create prefix");
+    /// ```
+    /// 
+    /// Use prefix specified in current wine struct:
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// Wine::default()
+    ///     .with_prefix("/path/to/prefix")
+    ///     .init_prefix(None::<&str>) // Don't even ask
+    ///     .expect("Failed to create prefix");
+    /// ```
+    /// 
+    /// If prefix is not specified in `Wine` struct and is not given to `update_prefix` method -
+    /// then `Err` will be returned
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+        let path = match path {
+            Some(path) => path.into(),
+            None => match &self.prefix {
+                Some(prefix) => prefix.to_owned(),
+                None => return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"))
+            }
+        };
+
+        // Create all parent directories
+        if !path.exists() {
+            std::fs::create_dir_all(&path)?;
+        }
+
+        self.wineboot_command()
+            .arg("-i")
+            .envs(self.get_envs())
+            .env("WINEPREFIX", path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+    }
+
+    /// Update existing wine prefix. Runs `wineboot -u` command
     /// 
     /// ```no_run
     /// use wincompatlib::prelude::*;
@@ -53,15 +100,19 @@ impl WineBootExt for Wine {
     /// 
     /// Wine::default()
     ///     .with_prefix("/path/to/prefix")
-    ///     .update_prefix::<&str>(None) // We need to specify the type for T: Into<PathBuf>
+    ///     .update_prefix(None::<&str>) // Don't even ask
     ///     .expect("Failed to update prefix");
     /// ```
     /// 
     /// If prefix is not specified in `Wine` struct and is not given to `update_prefix` method -
     /// then `Err` will be returned
-    fn update_prefix<T: Into<PathBuf>>(&self, path: Option<T>) -> Result<Output> {
-        let Some(path) = path.map(|path| path.into()).or_else(move || self.prefix.clone()) else {
-            return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"));
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+        let path = match path {
+            Some(path) => path.into(),
+            None => match &self.prefix {
+                Some(prefix) => prefix.to_owned(),
+                None => return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"))
+            }
         };
 
         // Create all parent directories

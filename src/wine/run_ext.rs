@@ -21,6 +21,7 @@ pub trait WineRunExt {
 }
 
 impl WineRunExt for Wine {
+    #[inline]
     /// Execute some command using wine
     /// 
     /// ```no_run
@@ -28,11 +29,11 @@ impl WineRunExt for Wine {
     /// 
     /// let process = Wine::default().run("/your/executable");
     /// ```
-    #[inline]
     fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child> {
         self.run_args_with_env([binary], [])
     }
 
+    #[inline]
     /// Execute some command with args using wine
     /// 
     /// ```no_run
@@ -40,7 +41,6 @@ impl WineRunExt for Wine {
     /// 
     /// let process = Wine::default().run_args(["/your/executable", "--help"]);
     /// ```
-    #[inline]
     fn run_args<T, S>(&self, args: T) -> Result<Child>
     where
         T: IntoIterator<Item = S>,

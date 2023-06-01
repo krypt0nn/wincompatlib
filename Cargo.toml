@@ -1,13 +1,13 @@
 [package]
 name = "wincompatlib"
-version = "0.4.1"
+version = "0.5.0"
 description = "Set of interfaces to run windows applications on unix-like systems using Wine"
 authors = ["Nikita Podvirnyy <suimin.tu.mu.ga.mi@gmail.com>"]
 license = "MIT"
 edition = "2021"
 
 [dev-dependencies]
-serial_test = "1.0.0"
+serial_test = "2.0.0"
 
 [features]
 dxvk = []
@@ -15,7 +15,9 @@ dxvk = []
 wine-bundles = []
 wine-proton = ["wine-bundles"]
 
-all = ["dxvk", "wine-bundles", "wine-proton"]
+winetricks = []
+
+all = ["dxvk", "wine-bundles", "wine-proton", "winetricks"]
 
 # Used for test purposes
 # default = ["all"]

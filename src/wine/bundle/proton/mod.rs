@@ -68,15 +68,17 @@ impl Proton {
             None => (None, None)
         };
 
+        let mut wine = Wine::from_binary(path.join("files/bin/wine64"))
+            .with_arch(WineArch::Win64)
+            .with_server(path.join("files/bin/wineserver"))
+            .with_loader(WineLoader::Current);
+
+        if let Some(prefix) = wine_prefix {
+            wine = wine.with_prefix(prefix);
+        }
+
         Self {
-            wine: Wine::new(
-                path.join("files/bin/wine64"),
-                wine_prefix,
-                Some(WineArch::Win64),
-                None,
-                Some(path.join("files/bin/wineserver")),
-                WineLoader::Current
-            ),
+            wine,
             path,
             proton_prefix,
             steam_client_path: None,
@@ -110,74 +112,9 @@ impl Proton {
 
         env
     }
-}
 
-impl WineWithExt for Proton {
-    /// Add path to proton directory
-    /// 
-    /// `prefix` should point to proton prefix, so wine prefix will be in `prefix/pfx`
-    #[inline]
-    fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self {
-        let prefix = prefix.into();
-
-        Self {
-            wine: self.wine.with_prefix(prefix.join("pfx")),
-            proton_prefix: Some(prefix),
-            ..self
-        }
-    }
-
-    /// Add wine architecture
-    #[inline]
-    fn with_arch(self, arch: WineArch) -> Self {
-        Self {
-            wine: self.wine.with_arch(arch),
-            ..self
-        }
-    }
-
-    /// Add wineboot binary
-    #[inline]
-    fn with_boot(self, boot: WineBoot) -> Self {
-        Self {
-            wine: self.wine.with_boot(boot),
-            ..self
-        }
-    }
-
-    /// Add wineserver binary
-    #[inline]
-    fn with_server<T: Into<PathBuf>>(self, server: T) -> Self {
-        Self {
-            wine: self.wine.with_server(server),
-            ..self
-        }
-    }
-
-    /// Add wineloader binary
-    #[inline]
-    fn with_loader(self, loader: WineLoader) -> Self {
-        Self {
-            wine: self.wine.with_loader(loader),
-            ..self
-        }
-    }
-}
-
-impl WineBootExt for Proton {
-    /// Get base `wineboot` command. Will return `wine wineboot` if `self.wineboot()` is `None`
-    #[inline]
-    fn wineboot_command(&self) -> Command {
-        self.wine.wineboot_command()
-    }
-
-    /// Create (or update existing) wine prefix.
-    /// Runs `wineboot -u` command and creates `version` and `tracked_files` files
-    /// in proton prefix
-    fn update_prefix<T: Into<PathBuf>>(&self, path: Option<T>) -> Result<Output> {
-        // Update wine prefix
-        let output = self.wine.update_prefix(path)?;
-
+    /// Inner function to update proton-related files
+    fn update_proton_files(&self) -> Result<()> {
         // This has to be Some unless library's user really knows what he does
         // in this case I'm nobody to stop him
         if let Some(path) = &self.proton_prefix {
@@ -229,46 +166,150 @@ impl WineBootExt for Proton {
             }
         }
 
+        Ok(())
+    }
+}
+
+impl WineWithExt for Proton {
+    #[inline]
+    /// Add path to proton directory
+    /// 
+    /// `prefix` should point to proton prefix, so wine prefix will be in `prefix/pfx`
+    fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self {
+        let prefix = prefix.into();
+
+        Self {
+            wine: self.wine.with_prefix(prefix.join("pfx")),
+            proton_prefix: Some(prefix),
+            ..self
+        }
+    }
+
+    #[inline]
+    /// Add wine architecture
+    fn with_arch(self, arch: WineArch) -> Self {
+        Self {
+            wine: self.wine.with_arch(arch),
+            ..self
+        }
+    }
+
+    #[inline]
+    /// Add wineboot binary
+    fn with_boot(self, boot: WineBoot) -> Self {
+        Self {
+            wine: self.wine.with_boot(boot),
+            ..self
+        }
+    }
+
+    #[inline]
+    /// Add wineserver binary
+    fn with_server<T: Into<PathBuf>>(self, server: T) -> Self {
+        Self {
+            wine: self.wine.with_server(server),
+            ..self
+        }
+    }
+
+    #[inline]
+    /// Add wineloader binary
+    fn with_loader(self, loader: WineLoader) -> Self {
+        Self {
+            wine: self.wine.with_loader(loader),
+            ..self
+        }
+    }
+
+    #[inline]
+    /// Set wine shared libraries paths
+    fn with_wine_libs(self, wine_libs: WineSharedLibs) -> Self {
+        Self {
+            wine: self.wine.with_wine_libs(wine_libs),
+            ..self
+        }
+    }
+
+    #[inline]
+    /// Set gstreamer shared libraries paths
+    fn with_gstreamer_libs(self, gstreamer_libs: GstreamerSharedLibs) -> Self {
+        Self {
+            wine: self.wine.with_gstreamer_libs(gstreamer_libs),
+            ..self
+        }
+    }
+}
+
+impl WineBootExt for Proton {
+    #[inline]
+    /// Get base `wineboot` command. Will return `wine wineboot` if `self.wineboot()` is `None`
+    fn wineboot_command(&self) -> Command {
+        self.wine.wineboot_command()
+    }
+
+    #[inline]
+    /// Initialize wine prefix
+    /// 
+    /// Runs `wineboot -i` command and creates `version`
+    /// and `tracked_files` files in proton prefix
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+        let output = self.wine.init_prefix(path)?;
+
+        self.update_proton_files()?;
+
         Ok(output)
     }
 
-    /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`
     #[inline]
+    /// Update existing wine prefix
+    /// 
+    /// Runs `wineboot -u` command and creates `version`
+    /// and `tracked_files` files in proton prefix
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+        let output = self.wine.update_prefix(path)?;
+
+        self.update_proton_files()?;
+
+        Ok(output)
+    }
+
+    #[inline]
+    /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`
     fn stop_processes(&self, force: bool) -> Result<Output> {
         self.wine.stop_processes(force)
     }
 
-    /// Imitate windows restart. Runs `wineboot -r` command
     #[inline]
+    /// Imitate windows restart. Runs `wineboot -r` command
     fn restart(&self) -> Result<Output> {
         self.wine.restart()
     }
 
-    /// Imitate windows shutdown. Runs `wineboot -s` command
     #[inline]
+    /// Imitate windows shutdown. Runs `wineboot -s` command
     fn shutdown(&self) -> Result<Output> {
         self.wine.shutdown()
     }
 
-    /// End wineboot session. Runs `wineboot -e` command
     #[inline]
+    /// End wineboot session. Runs `wineboot -e` command
     fn end_session(&self) -> Result<Output> {
         self.wine.end_session()
     }
 }
 
 impl WineRunExt for Proton {
-    /// Run the game using proton
     #[inline]
+    /// Run the game using proton
     fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child> {
         self.run_args_with_env([binary], [])
     }
 
+    #[inline]
     /// Run the game using proton
     /// 
     /// Note that it doesn't accept several arguments. You should use `[binary]` here only.
     /// This syntax remains here only because of `WineRunExt` trait
-    #[inline]
     fn run_args<T, S>(&self, args: T) -> Result<Child>
     where
         T: IntoIterator<Item = S>,

@@ -13,6 +13,13 @@ pub use with_ext::WineWithExt;
 pub use boot_ext::WineBootExt;
 pub use run_ext::WineRunExt;
 
+mod shared_libraries;
+
+pub use shared_libraries::{
+    Wine as WineSharedLibs,
+    Gstreamer as GstreamerSharedLibs
+};
+
 #[cfg(feature = "wine-bundles")]
 pub mod bundle;
 
@@ -90,7 +97,8 @@ impl Default for WineLoader {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Wine {
-    binary: PathBuf,
+    /// Path to the wine binary
+    pub binary: PathBuf,
 
     /// Specifies `WINEPREFIX` variable
     pub prefix: Option<PathBuf>,
@@ -105,38 +113,44 @@ pub struct Wine {
     pub wineserver: Option<PathBuf>,
 
     /// Specifies `WINELOADER` variable
-    pub wineloader: WineLoader
+    pub wineloader: WineLoader,
+
+    /// Describes which `LD_LIBRARY_PATH` value should be used
+    pub wine_libs: WineSharedLibs,
+
+    /// Describes which `GST_PLUGIN_PATH` value should be used
+    /// 
+    /// https://gstreamer.freedesktop.org/documentation/gstreamer/gstregistry.html?gi-language=c
+    pub gstreamer_libs: GstreamerSharedLibs
 }
 
 impl Default for Wine {
+    #[inline]
     fn default() -> Self {
         Self::from_binary("wine")
     }
 }
 
+impl AsRef<Wine> for Wine {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
 impl Wine {
     #[inline]
-    pub fn new<T: Into<PathBuf>>(
-        binary: T,
-        prefix: Option<T>,
-        arch: Option<WineArch>,
-        wineboot: Option<WineBoot>,
-        wineserver: Option<T>,
-        wineloader: WineLoader
-    ) -> Self {
-        Wine {
+    pub fn from_binary(binary: impl Into<PathBuf>) -> Self {
+        Self {
             binary: binary.into(),
-            prefix: prefix.map(|value| value.into()),
-            arch,
-            wineboot,
-            wineserver: wineserver.map(|value| value.into()),
-            wineloader
+            prefix: None,
+            arch: None,
+            wineboot: None,
+            wineserver: None,
+            wineloader: WineLoader::default(),
+            wine_libs: WineSharedLibs::default(),
+            gstreamer_libs: GstreamerSharedLibs::default()
         }
-    }
-
-    #[inline]
-    pub fn from_binary<T: Into<PathBuf>>(binary: T) -> Self {
-        Self::new(binary, None, None, None, None, WineLoader::default())
     }
 
     /// Try to get version of provided wine binary. Runs command: `wine --version`
@@ -157,12 +171,6 @@ impl Wine {
            .output()?;
 
         Ok(OsString::from_vec(output.stdout))
-    }
-
-    /// Get wine binary path
-    #[inline]
-    pub fn binary(&self) -> &Path {
-        self.binary.as_path()
     }
 
     fn get_inner_binary(&self, binary: &str) -> Option<PathBuf> {
@@ -244,6 +252,7 @@ impl Wine {
         })
     }
 
+    #[inline]
     /// Get path to wineserver binary, or "wineserver" if not specified
     /// 
     /// If wine binary is specified (so not system), then function will try to find wineserver binary inside of this wine's folder
@@ -259,15 +268,14 @@ impl Wine {
     /// // Build without wineserver
     /// assert_eq!(Wine::from_binary("wine_build_without_wineserver/wine").wineserver(), PathBuf::from("wineserver"));
     /// ```
-    #[inline]
     pub fn wineserver(&self) -> PathBuf {
         self.wineserver.clone()
             .unwrap_or_else(|| self.get_inner_binary("wineserver")
             .unwrap_or_else(|| PathBuf::from("wineserver")))
     }
 
-    /// Get path to wine binary, or "wine" if not specified (`WineLoader::Default`)
     #[inline]
+    /// Get path to wine binary, or "wine" if not specified (`WineLoader::Default`)
     pub fn wineloader(&self) -> &Path {
         match &self.wineloader {
             WineLoader::Default => Path::new("wine"),
@@ -284,6 +292,8 @@ impl Wine {
     /// - `WINEARCH`
     /// - `WINESERVER`
     /// - `WINELOADER`
+    /// - `LD_LIBRARY_PATH`
+    /// - `GST_PLUGIN_PATH`
     /// 
     /// ```
     /// use wincompatlib::prelude::*;
@@ -292,7 +302,7 @@ impl Wine {
     /// 
     /// let wine = Wine::default().with_arch(WineArch::Win64);
     /// 
-    /// Command::new(wine.binary())
+    /// Command::new(&wine.binary)
     ///     .envs(wine.get_envs())
     ///     .spawn();
     /// ```
@@ -321,10 +331,19 @@ impl Wine {
             }
         }
 
+        if let Some(path) = self.wine_libs.get_paths() {
+            env.insert("LD_LIBRARY_PATH", OsString::from(path));
+        }
+
+        if let Some(path) = self.gstreamer_libs.get_paths() {
+            env.insert("GST_PLUGIN_PATH", OsString::from(path));
+        }
+
         env
     }
 
     #[cfg(feature = "dxvk")]
+    #[inline]
     /// Run `Dxvk::install` with parameters from current Wine struct. Will try to use system-wide binaries if some not specified
     /// 
     /// ```no_run
@@ -335,12 +354,12 @@ impl Wine {
     ///     .install_dxvk("/path/to/dxvk-2.1", InstallParams::default())
     ///     .expect("Failed to install DXVK 2.1");
     /// ```
-    #[inline]
     pub fn install_dxvk<T: Into<PathBuf>>(&self, dxvk_folder: T, params: super::dxvk::InstallParams) -> Result<()> {
         super::dxvk::Dxvk::install(self, dxvk_folder, params)
     }
 
     #[cfg(feature = "dxvk")]
+    #[inline]
     /// Run `Dxvk::uninstall` with parameters from current Wine struct. Will try to use system-wide binaries if some not specified
     /// 
     /// ```no_run
@@ -351,7 +370,6 @@ impl Wine {
     ///     .uninstall_dxvk(InstallParams::default())
     ///     .expect("Failed to uninstall DXVK");
     /// ```
-    #[inline]
     pub fn uninstall_dxvk(&self, params: super::dxvk::InstallParams) -> Result<()> {
         super::dxvk::Dxvk::uninstall(self, params)
     }

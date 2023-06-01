@@ -60,7 +60,7 @@ fn create_prefix() -> std::io::Result<()> {
     let wine = get_custom_wine();
 
     // Create wine prefix
-    wine.update_prefix::<&str>(None)?;
+    wine.update_prefix(None::<&str>)?;
 
     assert!(get_prefix_dir().join("drive_c/windows/system32/drivers").exists());
 
@@ -68,7 +68,7 @@ fn create_prefix() -> std::io::Result<()> {
     std::fs::remove_dir_all(get_prefix_dir().join("drive_c/windows/system32/drivers"))?;
 
     // Try to repair it
-    wine.update_prefix::<&str>(None)?;
+    wine.update_prefix(None::<&str>)?;
 
     assert!(get_prefix_dir().join("drive_c/windows/system32/drivers").exists());
 

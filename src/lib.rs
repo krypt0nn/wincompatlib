@@ -3,6 +3,9 @@ pub mod wine;
 #[cfg(feature = "dxvk")]
 pub mod dxvk;
 
+#[cfg(feature = "winetricks")]
+pub mod winetricks;
+
 #[cfg(test)]
 mod tests;
 
@@ -17,4 +20,7 @@ pub mod prelude {
 
     #[cfg(feature = "dxvk")]
     pub use super::dxvk::*;
+
+    #[cfg(feature = "winetricks")]
+    pub use super::winetricks::*;
 }
