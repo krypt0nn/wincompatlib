@@ -79,7 +79,7 @@ pub fn install_dll(wine: &Wine, system32: &Path, dlls_folder: &Path, dll_name: &
     std::fs::copy(&src_path, &dest_path)?;
 
     // Try to add override and return original file back if we failed
-    if let Err(err) = wine.add_override(dll_name) {
+    if let Err(err) = wine.add_override(dll_name, [OverrideMode::Native]) {
         std::fs::remove_file(&dest_path)?;
         std::fs::rename(&dest_path_old, &dest_path)?;
 
