@@ -6,4 +6,4 @@ mod overrides_ext;
 pub use with_ext::WineWithExt;
 pub use boot_ext::WineBootExt;
 pub use run_ext::WineRunExt;
-pub use overrides_ext::WineOverrideExt;
+pub use overrides_ext::WineOverridesExt;
