@@ -11,6 +11,7 @@ mod tests;
 
 pub mod prelude {
     pub use super::wine::*;
+    pub use super::wine::ext::*;
 
     #[cfg(feature = "wine-bundles")]
     pub use super::wine::bundle::Bundle as WineBundle;

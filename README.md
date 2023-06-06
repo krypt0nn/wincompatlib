@@ -9,6 +9,7 @@ Features:
 - Support DXVK installing, uninstalling, applied version parsing (`dxvk`)
 - Has bundles system for special wine builds (`wine-bundles`)
 - Has Proton support (`wine-proton`)
+- Integrates with `winetricks` (same called feature)
 
 ## Examples
 

@@ -1,17 +1,11 @@
 use std::collections::HashMap;
-use std::ffi::{OsString, OsStr};
+use std::ffi::OsString;
 use std::os::unix::prelude::OsStringExt;
 use std::path::{Path, PathBuf};
-use std::io::{Error, ErrorKind, Result};
-use std::process::{Command, Stdio, Output};
+use std::io::Result;
+use std::process::{Command, Stdio};
 
-mod with_ext;
-mod boot_ext;
-mod run_ext;
-
-pub use with_ext::WineWithExt;
-pub use boot_ext::WineBootExt;
-pub use run_ext::WineRunExt;
+pub mod ext;
 
 mod shared_libraries;
 

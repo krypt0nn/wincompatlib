@@ -1,40 +1,11 @@
 use std::io::{Error, ErrorKind};
+use std::process::Output;
 
-use super::*;
+use crate::wine::*;
 
 pub trait WineBootExt {
-    fn wineboot_command(&self) -> Command;
-    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
-    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
-    fn stop_processes(&self, force: bool) -> Result<Output>;
-    fn restart(&self) -> Result<Output>;
-    fn shutdown(&self) -> Result<Output>;
-    fn end_session(&self) -> Result<Output>;
-}
-
-impl WineBootExt for Wine {
     /// Get base `wineboot` command. Will return `wine wineboot` if `self.wineboot()` is `None`
-    fn wineboot_command(&self) -> Command {
-        match self.wineboot() {
-            Some(WineBoot::Unix(wineboot)) => Command::new(wineboot),
-
-            Some(WineBoot::Windows(wineboot)) => {
-                let mut command = Command::new(&self.binary);
-
-                command.arg(wineboot);
-
-                command
-            }
-
-            None => {
-                let mut command = Command::new(&self.binary);
-
-                command.arg("wineboot");
-
-                command
-            }
-        }
-    }
+    fn wineboot_command(&self) -> Command;
 
     /// Initialize wine prefix. Runs `wineboot -i` command
     /// 
@@ -59,29 +30,7 @@ impl WineBootExt for Wine {
     /// 
     /// If prefix is not specified in `Wine` struct and is not given to `update_prefix` method -
     /// then `Err` will be returned
-    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
-        let path = match path {
-            Some(path) => path.into(),
-            None => match &self.prefix {
-                Some(prefix) => prefix.to_owned(),
-                None => return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"))
-            }
-        };
-
-        // Create all parent directories
-        if !path.exists() {
-            std::fs::create_dir_all(&path)?;
-        }
-
-        self.wineboot_command()
-            .arg("-i")
-            .envs(self.get_envs())
-            .env("WINEPREFIX", path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-    }
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
 
     /// Update existing wine prefix. Runs `wineboot -u` command
     /// 
@@ -106,6 +55,103 @@ impl WineBootExt for Wine {
     /// 
     /// If prefix is not specified in `Wine` struct and is not given to `update_prefix` method -
     /// then `Err` will be returned
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
+
+    /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// Wine::default()
+    ///     .stop_processes(false)
+    ///     .expect("Failed to update prefix");
+    /// ```
+    fn stop_processes(&self, force: bool) -> Result<Output>;
+
+    /// Imitate windows restart. Runs `wineboot -r` command
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// Wine::default()
+    ///     .with_prefix("/path/to/prefix")
+    ///     .restart()
+    ///     .expect("Failed to restart");
+    /// ```
+    fn restart(&self) -> Result<Output>;
+
+    /// Imitate windows shutdown. Runs `wineboot -s` command
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// Wine::default()
+    ///     .with_prefix("/path/to/prefix")
+    ///     .shutdown()
+    ///     .expect("Failed to shutdown");
+    /// ```
+    fn shutdown(&self) -> Result<Output>;
+
+    /// End wineboot session. Runs `wineboot -e` command
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// Wine::default()
+    ///     .with_prefix("/path/to/prefix")
+    ///     .end_session()
+    ///     .expect("Failed to shutdown");
+    /// ```
+    fn end_session(&self) -> Result<Output>;
+}
+
+impl WineBootExt for Wine {
+    fn wineboot_command(&self) -> Command {
+        match self.wineboot() {
+            Some(WineBoot::Unix(wineboot)) => Command::new(wineboot),
+
+            Some(WineBoot::Windows(wineboot)) => {
+                let mut command = Command::new(&self.binary);
+
+                command.arg(wineboot);
+
+                command
+            }
+
+            None => {
+                let mut command = Command::new(&self.binary);
+
+                command.arg("wineboot");
+
+                command
+            }
+        }
+    }
+
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+        let path = match path {
+            Some(path) => path.into(),
+            None => match &self.prefix {
+                Some(prefix) => prefix.to_owned(),
+                None => return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"))
+            }
+        };
+
+        // Create all parent directories
+        if !path.exists() {
+            std::fs::create_dir_all(&path)?;
+        }
+
+        self.wineboot_command()
+            .arg("-i")
+            .envs(self.get_envs())
+            .env("WINEPREFIX", path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+    }
+
     fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
         let path = match path {
             Some(path) => path.into(),
@@ -130,15 +176,6 @@ impl WineBootExt for Wine {
             .output()
     }
 
-    /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`
-    /// 
-    /// ```no_run
-    /// use wincompatlib::prelude::*;
-    /// 
-    /// Wine::default()
-    ///     .stop_processes(false)
-    ///     .expect("Failed to update prefix");
-    /// ```
     fn stop_processes(&self, force: bool) -> Result<Output> {
         self.wineboot_command()
             .arg(if force { "-f" } else { "-k" })
@@ -149,16 +186,6 @@ impl WineBootExt for Wine {
             .output()
     }
 
-    /// Imitate windows restart. Runs `wineboot -r` command
-    /// 
-    /// ```no_run
-    /// use wincompatlib::prelude::*;
-    /// 
-    /// Wine::default()
-    ///     .with_prefix("/path/to/prefix")
-    ///     .restart()
-    ///     .expect("Failed to restart");
-    /// ```
     fn restart(&self) -> Result<Output> {
         self.wineboot_command()
             .arg("-r")
@@ -169,16 +196,6 @@ impl WineBootExt for Wine {
             .output()
     }
 
-    /// Imitate windows shutdown. Runs `wineboot -s` command
-    /// 
-    /// ```no_run
-    /// use wincompatlib::prelude::*;
-    /// 
-    /// Wine::default()
-    ///     .with_prefix("/path/to/prefix")
-    ///     .shutdown()
-    ///     .expect("Failed to shutdown");
-    /// ```
     fn shutdown(&self) -> Result<Output> {
         self.wineboot_command()
             .arg("-s")
@@ -189,16 +206,6 @@ impl WineBootExt for Wine {
             .output()
     }
 
-    /// End wineboot session. Runs `wineboot -e` command
-    /// 
-    /// ```no_run
-    /// use wincompatlib::prelude::*;
-    /// 
-    /// Wine::default()
-    ///     .with_prefix("/path/to/prefix")
-    ///     .end_session()
-    ///     .expect("Failed to shutdown");
-    /// ```
     fn end_session(&self) -> Result<Output> {
         self.wineboot_command()
             .arg("-e")

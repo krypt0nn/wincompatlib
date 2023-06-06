@@ -1,19 +1,8 @@
 use std::path::PathBuf;
 
-use super::*;
+use crate::wine::*;
 
 pub trait WineWithExt {
-    fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self;
-    fn with_arch(self, arch: WineArch) -> Self;
-    fn with_boot(self, boot: WineBoot) -> Self;
-    fn with_server<T: Into<PathBuf>>(self, server: T) -> Self;
-    fn with_loader(self, loader: WineLoader) -> Self;
-    fn with_wine_libs(self, wine_libs: WineSharedLibs) -> Self;
-    fn with_gstreamer_libs(self, gstreamer_libs: GstreamerSharedLibs) -> Self;
-}
-
-impl WineWithExt for Wine {
-    #[inline]
     /// Add path to wine prefix
     /// 
     /// ```
@@ -22,14 +11,8 @@ impl WineWithExt for Wine {
     /// let wine = Wine::from_binary("wine")
     ///     .with_prefix("/path/to/prefix");
     /// ```
-    fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self {
-        Self {
-            prefix: Some(prefix.into()),
-            ..self
-        }
-    }
+    fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self;
 
-    #[inline]
     /// Add wine architecture
     /// 
     /// ```
@@ -38,14 +21,8 @@ impl WineWithExt for Wine {
     /// let wine = Wine::from_binary("wine")
     ///     .with_arch(WineArch::Win64);
     /// ```
-    fn with_arch(self, arch: WineArch) -> Self {
-        Self {
-            arch: Some(arch),
-            ..self
-        }
-    }
+    fn with_arch(self, arch: WineArch) -> Self;
 
-    #[inline]
     /// Add wineboot binary
     /// 
     /// ```
@@ -54,14 +31,8 @@ impl WineWithExt for Wine {
     /// let wine = Wine::from_binary("wine")
     ///     .with_boot(WineBoot::Unix(std::path::PathBuf::from("path/to/wineboot")));
     /// ```
-    fn with_boot(self, boot: WineBoot) -> Self {
-        Self {
-            wineboot: Some(boot),
-            ..self
-        }
-    }
+    fn with_boot(self, boot: WineBoot) -> Self;
 
-    #[inline]
     /// Add wineserver binary
     /// 
     /// ```
@@ -70,14 +41,8 @@ impl WineWithExt for Wine {
     /// let wine = Wine::from_binary("wine")
     ///     .with_server("wineserver");
     /// ```
-    fn with_server<T: Into<PathBuf>>(self, server: T) -> Self {
-        Self {
-            wineserver: Some(server.into()),
-            ..self
-        }
-    }
+    fn with_server<T: Into<PathBuf>>(self, server: T) -> Self;
 
-    #[inline]
     /// Add wineloader binary
     /// 
     /// ```
@@ -86,6 +51,49 @@ impl WineWithExt for Wine {
     /// let wine = Wine::from_binary("wine")
     ///     .with_loader(WineLoader::Custom(std::path::PathBuf::from("wine")));
     /// ```
+    fn with_loader(self, loader: WineLoader) -> Self;
+
+    /// Set wine shared libraries paths
+    fn with_wine_libs(self, wine_libs: WineSharedLibs) -> Self;
+
+    /// Set gstreamer shared libraries paths
+    fn with_gstreamer_libs(self, gstreamer_libs: GstreamerSharedLibs) -> Self;
+}
+
+impl WineWithExt for Wine {
+    #[inline]
+    fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self {
+        Self {
+            prefix: Some(prefix.into()),
+            ..self
+        }
+    }
+
+    #[inline]
+    fn with_arch(self, arch: WineArch) -> Self {
+        Self {
+            arch: Some(arch),
+            ..self
+        }
+    }
+
+    #[inline]
+    fn with_boot(self, boot: WineBoot) -> Self {
+        Self {
+            wineboot: Some(boot),
+            ..self
+        }
+    }
+
+    #[inline]
+    fn with_server<T: Into<PathBuf>>(self, server: T) -> Self {
+        Self {
+            wineserver: Some(server.into()),
+            ..self
+        }
+    }
+
+    #[inline]
     fn with_loader(self, loader: WineLoader) -> Self {
         Self {
             wineloader: loader,
@@ -94,7 +102,6 @@ impl WineWithExt for Wine {
     }
 
     #[inline]
-    /// Set wine shared libraries paths
     fn with_wine_libs(self, wine_libs: shared_libraries::Wine) -> Self {
         Self {
             wine_libs,
@@ -103,7 +110,6 @@ impl WineWithExt for Wine {
     }
 
     #[inline]
-    /// Set gstreamer shared libraries paths
     fn with_gstreamer_libs(self, gstreamer_libs: shared_libraries::Gstreamer) -> Self {
         Self {
             gstreamer_libs,

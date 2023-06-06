@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
-use std::process::Child;
+use std::process::{Child, Output};
+use std::ffi::OsStr;
 
 use crate::wine::*;
+use crate::wine::ext::*;
 use super::Bundle;
 
 mod run_in_prefix_ext;

@@ -2,12 +2,7 @@ use std::path::{Path, PathBuf};
 use std::io::{Error, ErrorKind, Result};
 
 use super::wine::*;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Arch {
-    Win32,
-    Win64
-}
+use super::wine::ext::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallParams {
@@ -38,8 +33,8 @@ pub struct InstallParams {
 
     /// Which library versions should be installed
     /// 
-    /// Defualt is `Arch::Win64`
-    pub arch: Arch
+    /// Defualt is `WineArch::Win64`
+    pub arch: WineArch
 }
 
 impl Default for InstallParams {
@@ -50,7 +45,7 @@ impl Default for InstallParams {
             d3d10core: true,
             d3d11: true,
             repair_dlls: true,
-            arch: Arch::Win64
+            arch: WineArch::default()
         }
     }
 }
@@ -77,23 +72,21 @@ pub fn install_dll(wine: &Wine, system32: &Path, dlls_folder: &Path, dll_name: &
 
     // Rename dest file (it's (likely) an original one)
     else {
-        std::fs::rename(&dest_path, dest_path_old)?;
+        std::fs::rename(&dest_path, &dest_path_old)?;
     }
 
     // Copy dll to the destination location
     std::fs::copy(&src_path, &dest_path)?;
 
-    // "$wine" reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v $1 /d native /f
-    let output = wine.run_args(["reg", "add", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides", "/v", dll_name, "/d", "native", "/f"])?.wait_with_output()?;
+    // Try to add override and return original file back if we failed
+    if let Err(err) = wine.add_override(dll_name) {
+        std::fs::remove_file(&dest_path)?;
+        std::fs::rename(&dest_path_old, &dest_path)?;
 
-    match output.status.success() {
-        true  => Ok(()),
-        false => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-
-            Err(Error::new(ErrorKind::Other, "Failed to add dll override: ".to_string() + stdout.trim_end().lines().last().unwrap_or(&stdout)))
-        }
+        return Err(err);
     }
+
+    Ok(())
 }
 
 /// Remove dll override from the wine prefix
@@ -101,30 +94,22 @@ pub fn restore_dll(wine: &Wine, system32: &Path, dll_name: &str) -> Result<()> {
     let dest_path = system32.join(format!("{dll_name}.dll"));
     let dest_path_old = system32.join(format!("{dll_name}.dll.old"));
 
-    // Check dll existence
-    if dest_path.exists() {
-        // Original file exists so we'll restore it
-        if dest_path_old.exists() {
+    // Original file exists so we'll restore it
+    if dest_path_old.exists() {
+        wine.delete_override(dll_name)?;
+
+        if dest_path.exists() {
             std::fs::remove_file(&dest_path)?;
-            std::fs::rename(&dest_path_old, dest_path)?;
         }
 
-        // Original file doesn't exist
-        else {
-            return Err(Error::new(ErrorKind::Other, "Failed to restore dll, original file is not persisted: ".to_string() + &dest_path.to_string_lossy()));
-        }
+        std::fs::rename(&dest_path_old, dest_path)?;
+
+        Ok(())
     }
 
-    // "$wine" reg delete 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v $1 /f
-    let output = wine.run_args(["reg", "delete", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides", "/v", dll_name, "/f"])?.wait_with_output()?;
-
-    match output.status.success() {
-        true  => Ok(()),
-        false => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-
-            Err(Error::new(ErrorKind::Other, "Failed to add dll override: ".to_string() + stdout.trim_end().lines().last().unwrap_or(&stdout)))
-        }
+    // Original file doesn't exist
+    else {
+        Err(Error::new(ErrorKind::Other, format!("Failed to restore dll, original file doesn't exist: {}", &dest_path_old.to_string_lossy())))
     }
 }
 
@@ -278,32 +263,32 @@ impl Dxvk {
                 // DXGI
                 if params.dxgi {
                     match params.arch {
-                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "dxgi")?,
-                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "dxgi")?
+                        WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "dxgi")?,
+                        WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "dxgi")?
                     }
                 }
 
                 // D3D9
                 if params.d3d9 {
                     match params.arch {
-                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d9")?,
-                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d9")?
+                        WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d9")?,
+                        WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d9")?
                     }
                 }
 
                 // D3D10 Core
                 if params.d3d10core {
                     match params.arch {
-                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d10core")?,
-                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d10core")?
+                        WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d10core")?,
+                        WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d10core")?
                     }
                 }
 
                 // D3D11
                 if params.d3d11 {
                     match params.arch {
-                        Arch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d11")?,
-                        Arch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d11")?
+                        WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d11")?,
+                        WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d11")?
                     }
                 }
 
@@ -351,32 +336,32 @@ impl Dxvk {
                 // DXGI
                 if params.dxgi {
                     match params.arch {
-                        Arch::Win32 => restore_dll(wine, &system32, "dxgi")?,
-                        Arch::Win64 => restore_dll(wine, &system32, "dxgi")?
+                        WineArch::Win32 => restore_dll(wine, &system32, "dxgi")?,
+                        WineArch::Win64 => restore_dll(wine, &system32, "dxgi")?
                     }
                 }
 
                 // D3D9
                 if params.d3d9 {
                     match params.arch {
-                        Arch::Win32 => restore_dll(wine, &system32, "d3d9")?,
-                        Arch::Win64 => restore_dll(wine, &system32, "d3d9")?
+                        WineArch::Win32 => restore_dll(wine, &system32, "d3d9")?,
+                        WineArch::Win64 => restore_dll(wine, &system32, "d3d9")?
                     }
                 }
 
                 // D3D10 Core
                 if params.d3d10core {
                     match params.arch {
-                        Arch::Win32 => restore_dll(wine, &system32, "d3d10core")?,
-                        Arch::Win64 => restore_dll(wine, &system32, "d3d10core")?
+                        WineArch::Win32 => restore_dll(wine, &system32, "d3d10core")?,
+                        WineArch::Win64 => restore_dll(wine, &system32, "d3d10core")?
                     }
                 }
 
                 // D3D11
                 if params.d3d11 {
                     match params.arch {
-                        Arch::Win32 => restore_dll(wine, &system32, "d3d11")?,
-                        Arch::Win64 => restore_dll(wine, &system32, "d3d11")?
+                        WineArch::Win32 => restore_dll(wine, &system32, "d3d11")?,
+                        WineArch::Win64 => restore_dll(wine, &system32, "d3d11")?
                     }
                 }
 

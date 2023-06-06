@@ -5,8 +5,24 @@ use std::io::Result;
 use super::Proton;
 
 pub trait WaitForExitAndRunExt {
+    /// Executes `python3 proton waitforexitandrun` command
+    /// 
+    /// In the end equal to:
+    /// 
+    /// ```bash
+    /// ./proton/files/bin/wineserver -w
+    /// ./proton/files/bin/wine64 'c:\windows\system32\steam.exe' binary
+    /// ```
     fn wait_for_exit_and_run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child>;
 
+    /// Executes `python3 proton waitforexitandrun` command
+    /// 
+    /// In the end equal to:
+    /// 
+    /// ```bash
+    /// ./proton/files/bin/wineserver -w
+    /// ./proton/files/bin/wine64 'c:\windows\system32\steam.exe' binary
+    /// ```
     fn wait_for_exit_and_run_with_envs<T, S>(&self, binary: T, envs: S) -> Result<Child>
     where
         T: AsRef<OsStr>,
@@ -14,27 +30,11 @@ pub trait WaitForExitAndRunExt {
 }
 
 impl WaitForExitAndRunExt for Proton {
-    /// Executes `python3 proton waitforexitandrun` command
-    /// 
-    /// In the end equal to:
-    /// 
-    /// ```bash
-    /// ./proton/files/bin/wineserver -w
-    /// ./proton/files/bin/wine64 'c:\windows\system32\steam.exe' binary
-    /// ```
     #[inline]
     fn wait_for_exit_and_run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child> {
         self.wait_for_exit_and_run_with_envs(binary, [])
     }
 
-    /// Executes `python3 proton waitforexitandrun` command
-    /// 
-    /// In the end equal to:
-    /// 
-    /// ```bash
-    /// ./proton/files/bin/wineserver -w
-    /// ./proton/files/bin/wine64 'c:\windows\system32\steam.exe' binary
-    /// ```
     fn wait_for_exit_and_run_with_envs<T, S>(&self, binary: T, envs: S) -> Result<Child>
     where
         T: AsRef<OsStr>,

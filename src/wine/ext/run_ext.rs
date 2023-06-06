@@ -1,27 +1,11 @@
 use std::path::PathBuf;
 use std::process::{Child, Command};
+use std::ffi::OsStr;
+use std::io::{Error, ErrorKind};
 
-use super::*;
+use crate::wine::*;
 
 pub trait WineRunExt {
-    fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child>;
-
-    fn run_args<T, S>(&self, args: T) -> Result<Child>
-    where
-        T: IntoIterator<Item = S>,
-        S: AsRef<OsStr>;
-
-    fn run_args_with_env<T, K, S>(&self, args: T, envs: K) -> Result<Child>
-    where
-        T: IntoIterator<Item = S>,
-        K: IntoIterator<Item = (S, S)>,
-        S: AsRef<OsStr>;
-
-    fn winepath(&self, path: &str) -> Result<PathBuf>;
-}
-
-impl WineRunExt for Wine {
-    #[inline]
     /// Execute some command using wine
     /// 
     /// ```no_run
@@ -29,11 +13,8 @@ impl WineRunExt for Wine {
     /// 
     /// let process = Wine::default().run("/your/executable");
     /// ```
-    fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child> {
-        self.run_args_with_env([binary], [])
-    }
+    fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child>;
 
-    #[inline]
     /// Execute some command with args using wine
     /// 
     /// ```no_run
@@ -44,10 +25,7 @@ impl WineRunExt for Wine {
     fn run_args<T, S>(&self, args: T) -> Result<Child>
     where
         T: IntoIterator<Item = S>,
-        S: AsRef<OsStr>
-    {
-        self.run_args_with_env(args, [])
-    }
+        S: AsRef<OsStr>;
 
     /// Execute some command with args and environment variables using wine
     /// 
@@ -58,6 +36,37 @@ impl WineRunExt for Wine {
     ///     ("YOUR", "variable")
     /// ]);
     /// ```
+    fn run_args_with_env<T, K, S>(&self, args: T, envs: K) -> Result<Child>
+    where
+        T: IntoIterator<Item = S>,
+        K: IntoIterator<Item = (S, S)>,
+        S: AsRef<OsStr>;
+
+    /// Get unix path to the windows folder in the wine prefix
+    /// 
+    /// ```no_run
+    /// use wincompatlib::prelude::*;
+    /// 
+    /// println!("System32 path: {:?}", Wine::default().winepath("C:\\windows\\system32"));
+    /// ```
+    fn winepath(&self, path: &str) -> Result<PathBuf>;
+}
+
+impl WineRunExt for Wine {
+    #[inline]
+    fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child> {
+        self.run_args_with_env([binary], [])
+    }
+
+    #[inline]
+    fn run_args<T, S>(&self, args: T) -> Result<Child>
+    where
+        T: IntoIterator<Item = S>,
+        S: AsRef<OsStr>
+    {
+        self.run_args_with_env(args, [])
+    }
+
     fn run_args_with_env<T, K, S>(&self, args: T, envs: K) -> Result<Child>
     where
         T: IntoIterator<Item = S>,
@@ -74,13 +83,6 @@ impl WineRunExt for Wine {
             .spawn()
     }
 
-    /// Get unix path to the windows folder in the wine prefix
-    /// 
-    /// ```no_run
-    /// use wincompatlib::prelude::*;
-    /// 
-    /// println!("System32 path: {:?}", Wine::default().winepath("C:\\windows\\system32"));
-    /// ```
     fn winepath(&self, path: &str) -> Result<PathBuf> {
         let output = self.run_args(["winepath", "-u", path])?.wait_with_output()?;
 
