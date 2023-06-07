@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 
 use crate::wine::*;
 use crate::wine::ext::*;
+
 use super::Bundle;
 
 mod run_in_prefix_ext;
@@ -345,5 +346,33 @@ impl WineRunExt for Proton {
     #[inline]
     fn winepath(&self, path: &str) -> anyhow::Result<PathBuf> {
         self.wine.winepath(path)
+    }
+}
+
+impl WineOverridesExt for Proton {
+    #[inline]
+    fn add_override(&self, dll_name: impl AsRef<str>, modes: impl IntoIterator<Item = OverrideMode>) -> anyhow::Result<()> {
+        self.wine.add_override(dll_name, modes)
+    }
+
+    fn delete_override(&self, dll_name: impl AsRef<str>) -> anyhow::Result<()> {
+        self.wine.delete_override(dll_name)
+    }
+}
+
+impl WineFontsExt for Proton {
+    #[inline]
+    fn register_font(&self, ttf: impl AsRef<str>, font_name: impl AsRef<str>) -> anyhow::Result<()> {
+        self.wine.register_font(ttf, font_name)
+    }
+
+    #[inline]
+    fn font_is_installed(&self, ttf: impl AsRef<str>) -> bool {
+        self.wine.font_is_installed(ttf)
+    }
+
+    #[inline]
+    fn install_corefont(&self, corefont: Corefont) -> anyhow::Result<()> {
+        self.wine.install_corefont(corefont)
     }
 }
