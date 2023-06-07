@@ -103,6 +103,7 @@ pub enum Corefont {
 }
 
 impl Corefont {
+    /// Get iterator over all available enum values
     pub fn iterator() -> impl IntoIterator<Item = Self> {
         [
             Self::Andale,
@@ -118,7 +119,7 @@ impl Corefont {
         ].into_iter()
     }
 
-    /// Get main `.ttf` file's name without extension
+    /// Get corefont code name
     /// 
     /// | Corefont enum | Font code name |
     /// | :- | :- |
@@ -132,7 +133,7 @@ impl Corefont {
     /// | Trebuchet | trebuc |
     /// | Verdana | verdana |
     /// | Webdings | webdings |
-    pub fn to_str(&'_ self) -> &'_ str {
+    pub fn code(&'_ self) -> &'_ str {
         match self {
             Corefont::Andale    => "andalemo",
             Corefont::Arial     => "arial",
@@ -145,6 +146,48 @@ impl Corefont {
             Corefont::Verdana   => "verdana",
             Corefont::Webdings  => "webdings"
         }
+    }
+
+    /// Get full corefont name
+    /// 
+    /// | Corefont enum | Font name |
+    /// | :- | :- |
+    /// | Andale | Andale |
+    /// | Arial | Arial |
+    /// | ComicSans | Comic Sans MS |
+    /// | Courier | Courier New |
+    /// | Georgia | Georgia |
+    /// | Impact | Impact |
+    /// | Times | Times New Roman |
+    /// | Trebuchet | Trebuchet MS |
+    /// | Verdana | Verdana |
+    /// | Webdings | Webdings |
+    pub fn name(&'_ self) -> &'_ str {
+        match self {
+            Corefont::Andale    => "Andale",
+            Corefont::Arial     => "Arial",
+            Corefont::ComicSans => "Comic Sans MS",
+            Corefont::Courier   => "Courier New",
+            Corefont::Georgia   => "Georgia",
+            Corefont::Impact    => "Impact",
+            Corefont::Times     => "Times New Roman",
+            Corefont::Trebuchet => "Trebuchet MS",
+            Corefont::Verdana   => "Verdana",
+            Corefont::Webdings  => "Webdings"
+        }
+    }
+
+    /// Check if current font is installed in the wine prefix's fonts folder
+    pub fn is_installed(&self, prefix: impl AsRef<Path>) -> bool {
+        let prefix = prefix.as_ref();
+        let font = self.code();
+
+        prefix.join("drive_c/windows/Fonts").join(format!("{font}.ttf")).exists() |
+        prefix.join("drive_c/windows/Fonts").join(format!("{font}.TTF")).exists() |
+
+        // Didn't see such situations in real life but it's listed in the winetricks so I guess they can occur?
+        prefix.join("drive_c/windows/fonts").join(format!("{font}.ttf")).exists() |
+        prefix.join("drive_c/windows/fonts").join(format!("{font}.TTF")).exists()
     }
 }
 
@@ -170,37 +213,23 @@ pub trait WineFontsExt {
     /// use wincompatlib::wine::Wine;
     /// use wincompatlib::wine::ext::WineFontsExt;
     /// 
-    /// let installed = Wine::default().is_installed("times");
+    /// let installed = Wine::default().font_is_installed("times");
     /// 
     /// println!("Is Times fonts installed: {:?}", installed);
     /// ```
-    fn is_installed(&self, ttf: impl AsRef<str>) -> bool;
+    fn font_is_installed(&self, ttf: impl AsRef<str>) -> bool;
 
     /// Install given Microsoft Corefont
     /// 
     /// ```no_run
     /// use wincompatlib::wine::Wine;
-    /// use wincompatlib::wine::ext::WineFontsExt;
+    /// use wincompatlib::wine::ext::{WineFontsExt, Corefont};
     /// 
     /// if let Err(err) = Wine::default().install_corefont(Corefont::Times) {
     ///     eprintln!("Failed to install Times New Roman: {err}");
     /// }
     /// ```
     fn install_corefont(&self, corefont: Corefont) -> anyhow::Result<()>;
-
-    /// Install all available Microsoft Corefonts
-    /// 
-    /// ```no_run
-    /// use wincompatlib::wine::Wine;
-    /// use wincompatlib::wine::ext::WineFontsExt;
-    /// 
-    /// println!("Preparing wine prefix...");
-    /// 
-    /// if let Err(err) = Wine::default().install_corefonts() {
-    ///     eprintln!("Failed to install corefonts: {err}");
-    /// }
-    /// ```
-    fn install_corefonts(&self) -> anyhow::Result<()>;
 }
 
 impl WineFontsExt for Wine {
@@ -230,7 +259,7 @@ impl WineFontsExt for Wine {
         Ok(())
     }
 
-    fn is_installed(&self, font_file: impl AsRef<str>) -> bool {
+    fn font_is_installed(&self, font_file: impl AsRef<str>) -> bool {
         self.prefix.join("drive_c/windows/Fonts").join(font_file.as_ref()).exists() |
         self.prefix.join("drive_c/windows/Fonts").join(format!("{}.ttf", font_file.as_ref())).exists() |
         self.prefix.join("drive_c/windows/Fonts").join(format!("{}.TTF", font_file.as_ref())).exists() |
@@ -342,14 +371,6 @@ impl WineFontsExt for Wine {
             Corefont::Webdings => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/webdin32.exe", [
                 ("Webdings.TTF", "webdings.ttf", "Webdings")
             ])?,
-        }
-
-        Ok(())
-    }
-
-    fn install_corefonts(&self) -> anyhow::Result<()> {
-        for font in Corefont::iterator() {
-            self.install_corefont(font)?;
         }
 
         Ok(())

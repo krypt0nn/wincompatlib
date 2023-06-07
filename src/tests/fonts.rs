@@ -8,14 +8,12 @@ use super::wine::get_custom_wine;
 fn install_corefonts() -> anyhow::Result<()> {
     let wine = get_custom_wine();
 
-    // for font in Corefont::iterator() {
-    //     assert!(!wine.is_installed(font.to_str()));
-    // }
-
-    wine.install_corefonts()?;
-
     for font in Corefont::iterator() {
-        assert!(wine.is_installed(font.to_str()));
+        if !font.is_installed(&wine.prefix) {
+            wine.install_corefont(font)?;
+
+            assert!(font.is_installed(&wine.prefix));
+        }
     }
 
     Ok(())
