@@ -40,7 +40,7 @@ fn get_dxvk_folder() -> PathBuf {
 
 #[test]
 #[serial]
-fn apply_dxvk() -> std::io::Result<()> {
+fn apply_dxvk() -> anyhow::Result<()> {
     // Test non existing prefix version
     assert!(Dxvk::get_version("\0").is_err());
 

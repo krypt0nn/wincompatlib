@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::os::unix::prelude::OsStringExt;
 use std::path::{Path, PathBuf};
-use std::io::Result;
 use std::process::{Command, Stdio};
 
 pub mod ext;
@@ -95,10 +94,10 @@ pub struct Wine {
     pub binary: PathBuf,
 
     /// Specifies `WINEPREFIX` variable
-    pub prefix: Option<PathBuf>,
+    pub prefix: PathBuf,
 
     /// Specifies `WINEARCH` variable
-    pub arch: Option<WineArch>,
+    pub arch: WineArch,
 
     /// Path to wineboot binary
     pub wineboot: Option<WineBoot>,
@@ -137,8 +136,12 @@ impl Wine {
     pub fn from_binary(binary: impl Into<PathBuf>) -> Self {
         Self {
             binary: binary.into(),
-            prefix: None,
-            arch: None,
+
+            prefix: PathBuf::from(std::env::var("HOME")
+                .unwrap_or_else(|_| format!("/home/{}", std::env::var("USER").unwrap())))
+                .join(".wine"),
+
+            arch: WineArch::Win64,
             wineboot: None,
             wineserver: None,
             wineloader: WineLoader::default(),
@@ -157,7 +160,7 @@ impl Wine {
     ///     Err(err) => eprintln!("Wine is not available: {}", err)
     /// }
     /// ```
-    pub fn version(&self) -> Result<OsString> {
+    pub fn version(&self) -> anyhow::Result<OsString> {
         let output = Command::new(&self.binary)
            .arg("--version")
            .stdout(Stdio::piped())
@@ -177,7 +180,7 @@ impl Wine {
             }
 
             if let Some(parent) = parent.parent() {
-                let windows = match self.arch.unwrap_or_default() {
+                let windows = match self.arch {
                     WineArch::Win32 => parent.join("lib/wine/i386-windows"),
                     WineArch::Win64 => parent.join("lib64/wine/x86_64-windows"),
                 };
@@ -239,11 +242,9 @@ impl Wine {
             return Some(WineBoot::Unix(wineboot));
         }
 
-        self.prefix.as_ref().and_then(|prefix| {
-            let wineboot = prefix.join("drive_c/windows/system32/wineboot.exe");
+        let wineboot = self.prefix.join("drive_c/windows/system32/wineboot.exe");
 
-            wineboot.exists().then_some(WineBoot::Windows(wineboot))
-        })
+        wineboot.exists().then_some(WineBoot::Windows(wineboot))
     }
 
     #[inline]
@@ -303,13 +304,8 @@ impl Wine {
     pub fn get_envs(&self) -> HashMap<&str, OsString> {
         let mut env = HashMap::new();
 
-        if let Some(prefix) = &self.prefix {
-            env.insert("WINEPREFIX", prefix.as_os_str().to_os_string());
-        }
-
-        if let Some(arch) = self.arch {
-            env.insert("WINEARCH", arch.to_str().into());
-        }
+        env.insert("WINEPREFIX", self.prefix.as_os_str().to_os_string());
+        env.insert("WINEARCH", self.arch.to_str().into());
 
         if let Some(server) = &self.wineserver {
             env.insert("WINESERVER", server.as_os_str().to_os_string());
@@ -348,7 +344,7 @@ impl Wine {
     ///     .install_dxvk("/path/to/dxvk-2.1", InstallParams::default())
     ///     .expect("Failed to install DXVK 2.1");
     /// ```
-    pub fn install_dxvk<T: Into<PathBuf>>(&self, dxvk_folder: T, params: super::dxvk::InstallParams) -> Result<()> {
+    pub fn install_dxvk<T: Into<PathBuf>>(&self, dxvk_folder: T, params: super::dxvk::InstallParams) -> anyhow::Result<()> {
         super::dxvk::Dxvk::install(self, dxvk_folder, params)
     }
 
@@ -364,7 +360,7 @@ impl Wine {
     ///     .uninstall_dxvk(InstallParams::default())
     ///     .expect("Failed to uninstall DXVK");
     /// ```
-    pub fn uninstall_dxvk(&self, params: super::dxvk::InstallParams) -> Result<()> {
+    pub fn uninstall_dxvk(&self, params: super::dxvk::InstallParams) -> anyhow::Result<()> {
         super::dxvk::Dxvk::uninstall(self, params)
     }
 }

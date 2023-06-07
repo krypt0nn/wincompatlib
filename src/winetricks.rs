@@ -16,22 +16,16 @@ pub struct Winetricks {
     pub wineloader: Option<PathBuf>,
 
     /// Path to the wine prefix
-    pub wineprefix: Option<PathBuf>,
+    pub wineprefix: PathBuf,
 
     /// Wine architecture
-    pub arch: Option<WineArch>
+    pub arch: WineArch
 }
 
 impl Winetricks {
     #[inline]
     pub fn new(winetricks: impl Into<PathBuf>) -> Self {
-        Self {
-            winetricks: winetricks.into(),
-            wineserver: None,
-            wineloader: None,
-            wineprefix: None,
-            arch: None
-        }
+        Self::from_wine(winetricks, Wine::default())
     }
 
     #[inline]
@@ -64,26 +58,26 @@ impl Winetricks {
     #[inline]
     pub fn with_prefix(self, wineprefix: impl Into<PathBuf>) -> Self {
         Self {
-            wineprefix: Some(wineprefix.into()),
+            wineprefix: wineprefix.into(),
             ..self
         }
     }
 
     #[inline]
-    pub fn with_arch(self, arch: WineArch) -> Self {
+    pub fn with_arch(self, arch: impl Into<WineArch>) -> Self {
         Self {
-            arch: Some(arch),
+            arch: arch.into(),
             ..self
         }
     }
 
     #[inline]
-    pub fn install(&self, component: impl AsRef<str>) -> std::io::Result<Child> {
+    pub fn install(&self, component: impl AsRef<str>) -> anyhow::Result<Child> {
         self.install_args_with_env(component, ["-q"], [])
     }
 
     #[inline]
-    pub fn install_args<T, S>(&self, component: impl AsRef<str>, args: T) -> std::io::Result<Child>
+    pub fn install_args<T, S>(&self, component: impl AsRef<str>, args: T) -> anyhow::Result<Child>
     where
         T: IntoIterator<Item = S>,
         S: AsRef<OsStr>
@@ -91,7 +85,7 @@ impl Winetricks {
         self.install_args_with_env(component, args, [])
     }
 
-    pub fn install_args_with_env<T, K, S>(&self, component: impl AsRef<str>, args: T, envs: K) -> std::io::Result<Child>
+    pub fn install_args_with_env<T, K, S>(&self, component: impl AsRef<str>, args: T, envs: K) -> anyhow::Result<Child>
     where
         T: IntoIterator<Item = S>,
         K: IntoIterator<Item = (S, S)>,
@@ -112,25 +106,20 @@ impl Winetricks {
             command.env("WINE", loader);
 
             // Not really needed but I anyway will set it
-            if self.arch == Some(WineArch::Win64) {
+            if self.arch == WineArch::Win64 {
                 command.env("WINE64", loader);
             }
         }
 
-        if let Some(prefix) = &self.wineprefix {
-            command.env("WINEPREFIX", prefix);
-        }
+        command.env("WINEPREFIX", &self.wineprefix);
+        command.env("WINEARCH", self.arch.to_str());
 
-        if let Some(arch) = self.arch {
-            command.env("WINEARCH", arch.to_str());
-        }
-
-        command
+        Ok(command
             .args(args)
             .envs(envs)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
+            .spawn()?)
     }
 }

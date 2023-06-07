@@ -116,7 +116,7 @@ impl Proton {
     }
 
     /// Inner function to update proton-related files
-    fn update_proton_files(&self) -> Result<()> {
+    fn update_proton_files(&self) -> anyhow::Result<()> {
         // This has to be Some unless library's user really knows what he does
         // in this case I'm nobody to stop him
         if let Some(path) = &self.proton_prefix {
@@ -254,7 +254,7 @@ impl WineBootExt for Proton {
     /// 
     /// Runs `wineboot -i` command and creates `version`
     /// and `tracked_files` files in proton prefix
-    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> anyhow::Result<Output> {
         let output = self.wine.init_prefix(path)?;
 
         self.update_proton_files()?;
@@ -267,7 +267,7 @@ impl WineBootExt for Proton {
     /// 
     /// Runs `wineboot -u` command and creates `version`
     /// and `tracked_files` files in proton prefix
-    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> anyhow::Result<Output> {
         let output = self.wine.update_prefix(path)?;
 
         self.update_proton_files()?;
@@ -277,25 +277,25 @@ impl WineBootExt for Proton {
 
     #[inline]
     /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`
-    fn stop_processes(&self, force: bool) -> Result<Output> {
+    fn stop_processes(&self, force: bool) -> anyhow::Result<Output> {
         self.wine.stop_processes(force)
     }
 
     #[inline]
     /// Imitate windows restart. Runs `wineboot -r` command
-    fn restart(&self) -> Result<Output> {
+    fn restart(&self) -> anyhow::Result<Output> {
         self.wine.restart()
     }
 
     #[inline]
     /// Imitate windows shutdown. Runs `wineboot -s` command
-    fn shutdown(&self) -> Result<Output> {
+    fn shutdown(&self) -> anyhow::Result<Output> {
         self.wine.shutdown()
     }
 
     #[inline]
     /// End wineboot session. Runs `wineboot -e` command
-    fn end_session(&self) -> Result<Output> {
+    fn end_session(&self) -> anyhow::Result<Output> {
         self.wine.end_session()
     }
 }
@@ -303,7 +303,7 @@ impl WineBootExt for Proton {
 impl WineRunExt for Proton {
     #[inline]
     /// Run the game using proton
-    fn run<T: AsRef<OsStr>>(&self, binary: T) -> Result<Child> {
+    fn run<T: AsRef<OsStr>>(&self, binary: T) -> anyhow::Result<Child> {
         self.run_args_with_env([binary], [])
     }
 
@@ -312,7 +312,7 @@ impl WineRunExt for Proton {
     /// 
     /// Note that it doesn't accept several arguments. You should use `[binary]` here only.
     /// This syntax remains here only because of `WineRunExt` trait
-    fn run_args<T, S>(&self, args: T) -> Result<Child>
+    fn run_args<T, S>(&self, args: T) -> anyhow::Result<Child>
     where
         T: IntoIterator<Item = S>,
         S: AsRef<OsStr>
@@ -324,13 +324,13 @@ impl WineRunExt for Proton {
     /// 
     /// Note that it doesn't accept several arguments. You should use `[binary]` here only.
     /// This syntax remains here only because of `WineRunExt` trait
-    fn run_args_with_env<T, K, S>(&self, args: T, envs: K) -> Result<Child>
+    fn run_args_with_env<T, K, S>(&self, args: T, envs: K) -> anyhow::Result<Child>
     where
         T: IntoIterator<Item = S>,
         K: IntoIterator<Item = (S, S)>,
         S: AsRef<OsStr>
     {
-        Command::new(self.python.as_os_str())
+        Ok(Command::new(self.python.as_os_str())
             .arg(self.path.join("proton"))
             .arg("run")
             .args(args)
@@ -339,11 +339,11 @@ impl WineRunExt for Proton {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .envs(envs)
-            .spawn()
+            .spawn()?)
     }
 
     #[inline]
-    fn winepath(&self, path: &str) -> Result<PathBuf> {
+    fn winepath(&self, path: &str) -> anyhow::Result<PathBuf> {
         self.wine.winepath(path)
     }
 }

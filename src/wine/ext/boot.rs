@@ -1,4 +1,3 @@
-use std::io::{Error, ErrorKind};
 use std::process::Output;
 
 use crate::wine::*;
@@ -30,7 +29,7 @@ pub trait WineBootExt {
     /// 
     /// If prefix is not specified in `Wine` struct and is not given to `update_prefix` method -
     /// then `Err` will be returned
-    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> anyhow::Result<Output>;
 
     /// Update existing wine prefix. Runs `wineboot -u` command
     /// 
@@ -55,7 +54,7 @@ pub trait WineBootExt {
     /// 
     /// If prefix is not specified in `Wine` struct and is not given to `update_prefix` method -
     /// then `Err` will be returned
-    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output>;
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> anyhow::Result<Output>;
 
     /// Stop running processes. Runs `wineboot -k` command, or `wineboot -f` if `force = true`
     /// 
@@ -66,7 +65,7 @@ pub trait WineBootExt {
     ///     .stop_processes(false)
     ///     .expect("Failed to update prefix");
     /// ```
-    fn stop_processes(&self, force: bool) -> Result<Output>;
+    fn stop_processes(&self, force: bool) -> anyhow::Result<Output>;
 
     /// Imitate windows restart. Runs `wineboot -r` command
     /// 
@@ -78,7 +77,7 @@ pub trait WineBootExt {
     ///     .restart()
     ///     .expect("Failed to restart");
     /// ```
-    fn restart(&self) -> Result<Output>;
+    fn restart(&self) -> anyhow::Result<Output>;
 
     /// Imitate windows shutdown. Runs `wineboot -s` command
     /// 
@@ -90,7 +89,7 @@ pub trait WineBootExt {
     ///     .shutdown()
     ///     .expect("Failed to shutdown");
     /// ```
-    fn shutdown(&self) -> Result<Output>;
+    fn shutdown(&self) -> anyhow::Result<Output>;
 
     /// End wineboot session. Runs `wineboot -e` command
     /// 
@@ -102,7 +101,7 @@ pub trait WineBootExt {
     ///     .end_session()
     ///     .expect("Failed to shutdown");
     /// ```
-    fn end_session(&self) -> Result<Output>;
+    fn end_session(&self) -> anyhow::Result<Output>;
 }
 
 impl WineBootExt for Wine {
@@ -128,13 +127,10 @@ impl WineBootExt for Wine {
         }
     }
 
-    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+    fn init_prefix(&self, path: Option<impl Into<PathBuf>>) -> anyhow::Result<Output> {
         let path = match path {
             Some(path) => path.into(),
-            None => match &self.prefix {
-                Some(prefix) => prefix.to_owned(),
-                None => return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"))
-            }
+            None => self.prefix.to_owned()
         };
 
         // Create all parent directories
@@ -142,23 +138,20 @@ impl WineBootExt for Wine {
             std::fs::create_dir_all(&path)?;
         }
 
-        self.wineboot_command()
+        Ok(self.wineboot_command()
             .arg("-i")
             .envs(self.get_envs())
             .env("WINEPREFIX", path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
+            .output()?)
     }
 
-    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> Result<Output> {
+    fn update_prefix(&self, path: Option<impl Into<PathBuf>>) -> anyhow::Result<Output> {
         let path = match path {
             Some(path) => path.into(),
-            None => match &self.prefix {
-                Some(prefix) => prefix.to_owned(),
-                None => return Err(Error::new(ErrorKind::InvalidInput, "No prefix path given"))
-            }
+            None => self.prefix.to_owned()
         };
 
         // Create all parent directories
@@ -166,53 +159,53 @@ impl WineBootExt for Wine {
             std::fs::create_dir_all(&path)?;
         }
 
-        self.wineboot_command()
+        Ok(self.wineboot_command()
             .arg("-u")
             .envs(self.get_envs())
             .env("WINEPREFIX", path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
+            .output()?)
     }
 
-    fn stop_processes(&self, force: bool) -> Result<Output> {
-        self.wineboot_command()
+    fn stop_processes(&self, force: bool) -> anyhow::Result<Output> {
+        Ok(self.wineboot_command()
             .arg(if force { "-f" } else { "-k" })
             .envs(self.get_envs())
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
+            .output()?)
     }
 
-    fn restart(&self) -> Result<Output> {
-        self.wineboot_command()
+    fn restart(&self) -> anyhow::Result<Output> {
+        Ok(self.wineboot_command()
             .arg("-r")
             .envs(self.get_envs())
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
+            .output()?)
     }
 
-    fn shutdown(&self) -> Result<Output> {
-        self.wineboot_command()
+    fn shutdown(&self) -> anyhow::Result<Output> {
+        Ok(self.wineboot_command()
             .arg("-s")
             .envs(self.get_envs())
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
+            .output()?)
     }
 
-    fn end_session(&self) -> Result<Output> {
-        self.wineboot_command()
+    fn end_session(&self) -> anyhow::Result<Output> {
+        Ok(self.wineboot_command()
             .arg("-e")
             .envs(self.get_envs())
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
+            .output()?)
     }
 }

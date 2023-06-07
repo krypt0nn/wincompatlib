@@ -2,6 +2,9 @@ use std::path::PathBuf;
 
 mod wine;
 
+#[cfg(feature = "wine-fonts")]
+mod fonts;
+
 #[cfg(feature = "wine-proton")]
 mod proton;
 

@@ -10,6 +10,7 @@ Features:
 - Has bundles system for special wine builds (`wine-bundles`)
 - Has Proton support (`wine-proton`)
 - Integrates with `winetricks` (same called feature)
+- Can install Microsoft Corefonts (`wine-fonts` feature)
 
 ## Examples
 

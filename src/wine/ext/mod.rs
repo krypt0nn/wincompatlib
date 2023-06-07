@@ -1,9 +1,15 @@
-mod with_ext;
-mod boot_ext;
-mod run_ext;
-mod overrides_ext;
+mod with;
+mod boot;
+mod run;
+mod overrides;
 
-pub use with_ext::*;
-pub use boot_ext::*;
-pub use run_ext::*;
-pub use overrides_ext::*;
+#[cfg(feature = "wine-fonts")]
+mod fonts;
+
+pub use with::*;
+pub use boot::*;
+pub use run::*;
+pub use overrides::*;
+
+#[cfg(feature = "wine-fonts")]
+pub use fonts::*;

@@ -64,7 +64,7 @@ impl WineWithExt for Wine {
     #[inline]
     fn with_prefix<T: Into<PathBuf>>(self, prefix: T) -> Self {
         Self {
-            prefix: Some(prefix.into()),
+            prefix: prefix.into(),
             ..self
         }
     }
@@ -72,7 +72,7 @@ impl WineWithExt for Wine {
     #[inline]
     fn with_arch(self, arch: WineArch) -> Self {
         Self {
-            arch: Some(arch),
+            arch,
             ..self
         }
     }

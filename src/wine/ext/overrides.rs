@@ -1,5 +1,3 @@
-use std::io::{Error, ErrorKind, Result};
-
 use crate::wine::*;
 use crate::wine::ext::WineRunExt;
 
@@ -23,16 +21,18 @@ impl OverrideMode {
     }
 }
 
+// TODO: modify user.reg / system.reg manually instead of calling reg.exe
+
 pub trait WineOverridesExt {
     /// Add dll override to the wine registry
-    fn add_override(&self, dll_name: impl AsRef<str>, modes: impl IntoIterator<Item = OverrideMode>) -> Result<()>;
+    fn add_override(&self, dll_name: impl AsRef<str>, modes: impl IntoIterator<Item = OverrideMode>) -> anyhow::Result<()>;
 
     /// Remove dll override from the wine registry
-    fn delete_override(&self, dll_name: impl AsRef<str>) -> Result<()>;
+    fn delete_override(&self, dll_name: impl AsRef<str>) -> anyhow::Result<()>;
 }
 
 impl WineOverridesExt for Wine {
-    fn add_override(&self, dll_name: impl AsRef<str>, modes: impl IntoIterator<Item = OverrideMode>) -> Result<()> {
+    fn add_override(&self, dll_name: impl AsRef<str>, modes: impl IntoIterator<Item = OverrideMode>) -> anyhow::Result<()> {
         let modes = modes.into_iter()
             .map(|mode| mode.to_str())
             .collect::<Vec<&'static str>>()
@@ -49,10 +49,10 @@ impl WineOverridesExt for Wine {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let error = stdout.trim_end().lines().last().unwrap_or(&stdout);
 
-        Err(Error::new(ErrorKind::Other, format!("Failed to add dll override: {error}")))
+        anyhow::bail!("Failed to add dll override: {error}");
     }
 
-    fn delete_override(&self, dll_name: impl AsRef<str>) -> Result<()> {
+    fn delete_override(&self, dll_name: impl AsRef<str>) -> anyhow::Result<()> {
         // "$wine" reg delete 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v $1 /f
         let output = self.run_args(["reg", "delete", "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides", "/v", dll_name.as_ref(), "/f"])?
             .wait_with_output()?;
@@ -64,6 +64,6 @@ impl WineOverridesExt for Wine {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let error = stdout.trim_end().lines().last().unwrap_or(&stdout);
 
-        Err(Error::new(ErrorKind::Other, format!("Failed to remove dll override: {error}")))
+        anyhow::bail!("Failed to remove dll override: {error}");
     }
 }

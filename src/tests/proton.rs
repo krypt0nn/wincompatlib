@@ -45,7 +45,7 @@ fn get_custom_proton() -> Proton {
 
 #[test]
 #[parallel]
-fn proton_version() -> std::io::Result<()> {
+fn proton_version() -> anyhow::Result<()> {
     assert_eq!(get_custom_proton().wine().version()?, "wine-7.0 (Staging)\n");
 
     Ok(())
@@ -53,9 +53,9 @@ fn proton_version() -> std::io::Result<()> {
 
 #[test]
 #[serial]
-fn create_prefix() -> std::io::Result<()> {
+fn create_prefix() -> anyhow::Result<()> {
     let proton = get_custom_proton();
-    let wine_prefix = proton.wine().to_owned().prefix.unwrap();
+    let wine_prefix = proton.wine().to_owned().prefix;
 
     // Create wine prefix
     proton.update_prefix(None::<&str>)?;
@@ -75,7 +75,7 @@ fn create_prefix() -> std::io::Result<()> {
 
 #[test]
 #[serial]
-fn run_and_kill_notepad() -> std::io::Result<()> {
+fn run_and_kill_notepad() -> anyhow::Result<()> {
     let proton = get_custom_proton();
 
     // Never works well so..

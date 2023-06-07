@@ -47,7 +47,7 @@ pub fn get_custom_wine() -> Wine {
 
 #[test]
 #[parallel]
-fn wine_version() -> std::io::Result<()> {
+fn wine_version() -> anyhow::Result<()> {
     assert!(Wine::from_binary("\0").version().is_err());
     assert_eq!(get_custom_wine().version()?, "wine-5.12-15713-ga2b2801a91f (Staging)\n");
 
@@ -56,11 +56,11 @@ fn wine_version() -> std::io::Result<()> {
 
 #[test]
 #[serial]
-fn create_prefix() -> std::io::Result<()> {
+fn create_prefix() -> anyhow::Result<()> {
     let wine = get_custom_wine();
 
     // Create wine prefix
-    wine.update_prefix(None::<&str>)?;
+    wine.init_prefix(None::<&str>)?;
 
     assert!(get_prefix_dir().join("drive_c/windows/system32/drivers").exists());
 
@@ -77,7 +77,7 @@ fn create_prefix() -> std::io::Result<()> {
 
 #[test]
 #[serial]
-fn run_and_kill_notepad() -> std::io::Result<()> {
+fn run_and_kill_notepad() -> anyhow::Result<()> {
     let wine = get_custom_wine();
 
     let notepad = wine.run("notepad")?;
