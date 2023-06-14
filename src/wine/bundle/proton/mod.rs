@@ -372,7 +372,7 @@ impl WineFontsExt for Proton {
     }
 
     #[inline]
-    fn install_corefont(&self, corefont: Corefont) -> anyhow::Result<()> {
-        self.wine.install_corefont(corefont)
+    fn install_font(&self, font: Font) -> anyhow::Result<()> {
+        self.wine.install_font(font)
     }
 }

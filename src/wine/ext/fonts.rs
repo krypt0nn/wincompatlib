@@ -4,8 +4,7 @@ use crate::wine::*;
 use crate::wine::ext::WineRunExt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// List of Microsoft Corefonts
-pub enum Corefont {
+pub enum Font {
     /// Source: https://mirrors.kernel.org/gentoo/distfiles/andale32.exe
     /// 
     /// | File | Winetricks File | Name |
@@ -102,7 +101,7 @@ pub enum Corefont {
     Webdings
 }
 
-impl Corefont {
+impl Font {
     /// Get iterator over all available enum values
     pub fn iterator() -> impl IntoIterator<Item = Self> {
         [
@@ -135,16 +134,16 @@ impl Corefont {
     /// | Webdings | webdings |
     pub fn code(&'_ self) -> &'_ str {
         match self {
-            Corefont::Andale    => "andalemo",
-            Corefont::Arial     => "arial",
-            Corefont::ComicSans => "comic",
-            Corefont::Courier   => "cour",
-            Corefont::Georgia   => "georgia",
-            Corefont::Impact    => "impact",
-            Corefont::Times     => "times",
-            Corefont::Trebuchet => "trebuc",
-            Corefont::Verdana   => "verdana",
-            Corefont::Webdings  => "webdings"
+            Self::Andale    => "andalemo",
+            Self::Arial     => "arial",
+            Self::ComicSans => "comic",
+            Self::Courier   => "cour",
+            Self::Georgia   => "georgia",
+            Self::Impact    => "impact",
+            Self::Times     => "times",
+            Self::Trebuchet => "trebuc",
+            Self::Verdana   => "verdana",
+            Self::Webdings  => "webdings"
         }
     }
 
@@ -164,16 +163,16 @@ impl Corefont {
     /// | Webdings | Webdings |
     pub fn name(&'_ self) -> &'_ str {
         match self {
-            Corefont::Andale    => "Andale",
-            Corefont::Arial     => "Arial",
-            Corefont::ComicSans => "Comic Sans MS",
-            Corefont::Courier   => "Courier New",
-            Corefont::Georgia   => "Georgia",
-            Corefont::Impact    => "Impact",
-            Corefont::Times     => "Times New Roman",
-            Corefont::Trebuchet => "Trebuchet MS",
-            Corefont::Verdana   => "Verdana",
-            Corefont::Webdings  => "Webdings"
+            Self::Andale    => "Andale",
+            Self::Arial     => "Arial",
+            Self::ComicSans => "Comic Sans MS",
+            Self::Courier   => "Courier New",
+            Self::Georgia   => "Georgia",
+            Self::Impact    => "Impact",
+            Self::Times     => "Times New Roman",
+            Self::Trebuchet => "Trebuchet MS",
+            Self::Verdana   => "Verdana",
+            Self::Webdings  => "Webdings"
         }
     }
 
@@ -229,7 +228,7 @@ pub trait WineFontsExt {
     ///     eprintln!("Failed to install Times New Roman: {err}");
     /// }
     /// ```
-    fn install_corefont(&self, corefont: Corefont) -> anyhow::Result<()>;
+    fn install_font(&self, font: Font) -> anyhow::Result<()>;
 }
 
 impl WineFontsExt for Wine {
@@ -272,15 +271,22 @@ impl WineFontsExt for Wine {
 
     // TODO: I've made a merge request to minreq to add is_ok method. Use it once it will be merged
 
-    fn install_corefont(&self, corefont: Corefont) -> anyhow::Result<()> {
+    fn install_font(&self, font: Font) -> anyhow::Result<()> {
         fn install_fonts(wine: &Wine, url: &str, install: impl IntoIterator<Item = (impl AsRef<str>, impl AsRef<str>, impl AsRef<str>)>) -> anyhow::Result<()> {
             let name = url.split('/').last().unwrap().strip_suffix(".exe").unwrap();
 
             // FIXME: folder name can be lowercased?
             let fonts = wine.prefix.join("drive_c/windows/Fonts");
+            let cabextract_temp = fonts.join(format!(".{name}-cabextract"));
 
-            let path = std::env::temp_dir().join(format!("{name}.exe"));
-            let temp = std::env::temp_dir().join(name);
+            if cabextract_temp.exists() {
+                std::fs::remove_dir_all(&cabextract_temp)?;
+            }
+
+            std::fs::create_dir(&cabextract_temp)?;
+
+            let path = cabextract_temp.join(format!("{name}.exe"));
+            let temp = cabextract_temp.join(name);
 
             std::fs::write(&path, minreq::get(url).send()?.as_bytes())?;
 
@@ -303,15 +309,17 @@ impl WineFontsExt for Wine {
                 wine.register_font(new, name)?;
             }
 
+            std::fs::remove_dir_all(cabextract_temp)?;
+
             Ok(())
         }
 
-        match corefont {
-            Corefont::Andale => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/andale32.exe", [
+        match font {
+            Font::Andale => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/andale32.exe", [
                 ("AndaleMo.TTF", "andalemo.ttf", "Andale Mono")
             ])?,
 
-            Corefont::Arial => {
+            Font::Arial => {
                 install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/arial32.exe", [
                     ("Arial.TTF",   "arial.ttf",   "Arial"),
                     ("Arialbd.TTF", "arialbd.ttf", "Arial Bold"),
@@ -324,51 +332,51 @@ impl WineFontsExt for Wine {
                 ])?;
             }
 
-            Corefont::ComicSans => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/comic32.exe", [
+            Font::ComicSans => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/comic32.exe", [
                 ("Comic.TTF",   "comic.ttf",   "Comic Sans MS"),
                 ("Comicbd.TTF", "comicbd.ttf", "Comic Sans MS Bold"),
             ])?,
 
-            Corefont::Courier => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/courie32.exe", [
+            Font::Courier => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/courie32.exe", [
                 ("cour.ttf",   "cour.ttf",   "Courier New"),
                 ("courbd.ttf", "courbd.ttf", "Courier New Bold"),
                 ("couri.ttf",  "couri.ttf",  "Courier New Italic"),
                 ("courbi.ttf", "courbi.ttf", "Courier New Bold Italic")
             ])?,
 
-            Corefont::Georgia => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/georgi32.exe", [
+            Font::Georgia => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/georgi32.exe", [
                 ("Georgia.TTF",  "georgia.ttf",  "Georgia"),
                 ("Georgiab.TTF", "georgiab.ttf", "Georgia Bold"),
                 ("Georgiai.TTF", "georgiai.ttf", "Georgia Italic"),
                 ("Georgiaz.TTF", "georgiaz.ttf", "Georgia Bold Italic")
             ])?,
 
-            Corefont::Impact => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/impact32.exe", [
+            Font::Impact => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/impact32.exe", [
                 ("Impact.TTF", "impact.ttf", "Impact")
             ])?,
 
-            Corefont::Times => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/times32.exe", [
+            Font::Times => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/times32.exe", [
                 ("Times.TTF",   "times.ttf",   "Times New Roman"),
                 ("Timesbd.TTF", "timesbd.ttf", "Times New Roman Bold"),
                 ("Timesi.TTF",  "timesi.ttf",  "Times New Roman Italic"),
                 ("Timesbi.TTF", "timesbi.ttf", "Times New Roman Bold Italic")
             ])?,
 
-            Corefont::Trebuchet => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/trebuc32.exe", [
+            Font::Trebuchet => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/trebuc32.exe", [
                 ("trebuc.ttf",   "trebuc.ttf",   "Trebuchet MS"),
                 ("Trebucbd.ttf", "trebucbd.ttf", "Trebuchet MS Bold"),
                 ("trebucit.ttf", "trebucit.ttf", "Trebuchet MS Italic"),
                 ("trebucbi.ttf", "trebucbi.ttf", "Trebuchet MS Bold Italic")
             ])?,
 
-            Corefont::Verdana => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/verdan32.exe", [
+            Font::Verdana => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/verdan32.exe", [
                 ("Verdana.TTF",  "verdana.ttf",  "Verdana"),
                 ("Verdanab.TTF", "verdanab.ttf", "Verdana Bold"),
                 ("Verdanai.TTF", "verdanai.ttf", "Verdana Italic"),
                 ("Verdanaz.TTF", "verdanaz.ttf", "Verdana Bold Italic")
             ])?,
 
-            Corefont::Webdings => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/webdin32.exe", [
+            Font::Webdings => install_fonts(self, "https://mirrors.kernel.org/gentoo/distfiles/webdin32.exe", [
                 ("Webdings.TTF", "webdings.ttf", "Webdings")
             ])?,
         }
