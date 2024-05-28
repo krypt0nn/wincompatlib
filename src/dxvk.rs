@@ -7,22 +7,22 @@ use super::wine::ext::*;
 pub struct InstallParams {
     /// Install DXGI
     /// 
-    /// Defualt is `true`
+    /// Default is `true`
     pub dxgi: bool,
 
     /// Install D3D9
     /// 
-    /// Defualt is `true`
+    /// Default is `true`
     pub d3d9: bool,
 
     /// Install D3D10 Core
     /// 
-    /// Defualt is `true`
+    /// Default is `true`
     pub d3d10core: bool,
 
     /// Install D3D11
     /// 
-    /// Defualt is `true`
+    /// Default is `true`
     pub d3d11: bool,
 
     /// Ensure wine placeholder dlls are recreated if they are missing
@@ -32,7 +32,7 @@ pub struct InstallParams {
 
     /// Which library versions should be installed
     /// 
-    /// Defualt is `WineArch::Win64`
+    /// Default is `WineArch::Win64`
     pub arch: WineArch
 }
 
