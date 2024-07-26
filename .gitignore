@@ -1,4 +1,7 @@
 /target
 /Cargo.lock
-/.test
+
+/.direnv
 /.vscode
+
+/.test
