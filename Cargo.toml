@@ -2,20 +2,20 @@
 name = "wincompatlib"
 version = "0.7.4"
 description = "Set of interfaces to run windows applications on unix-like systems using Wine"
-authors = ["Nikita Podvirnyy <suimin.tu.mu.ga.mi@gmail.com>"]
+authors = ["Nikita Podvirnyi <krypt0nn@vk.com>"]
 license = "MIT"
 edition = "2021"
 
 [dev-dependencies]
-serial_test = "2.0.0"
+serial_test = "3.1"
 
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
 
 # Needed by features which require downloading stuff
 # For now it's wine-fonts only
-minreq = { version = "2.11.0", features = ["https-rustls", "https-rustls-probe"], optional = true }
-blake3 = { version = "1.5.0", optional = true }
+minreq = { version = "2.12", features = ["https-rustls", "https-rustls-probe"], optional = true }
+blake3 = { version = "1.5", optional = true }
 
 [features]
 dxvk = []
@@ -28,5 +28,4 @@ winetricks = []
 
 all = ["dxvk", "wine-bundles", "wine-proton", "wine-fonts", "winetricks"]
 
-# Used for test purposes
-# default = ["all"]
+default = ["all"]
