@@ -1,25 +1,39 @@
 {
-    inputs = {
-        nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-        nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-    };
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    naersk.url = "github:nix-community/naersk";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
 
-    outputs = { self, nixpkgs, nixpkgs-unstable }:
-        let
-            pkgs = nixpkgs.legacyPackages.x86_64-linux;
-            pkgs-unstable = nixpkgs-unstable.legacyPackages.x86_64-linux;
-
-        in {
-            devShells.x86_64-linux.default = pkgs.mkShell {
-                nativeBuildInputs = with pkgs; [
-                    pkgs-unstable.rustup
-                    pkgs-unstable.rustfmt
-                    pkgs-unstable.clippy
-
-                    gcc
-                    cmake
-                    pkg-config
-                ];
-            };
+  outputs = { self, flake-utils, ... }@inputs:
+    flake-utils.lib.eachSystem [ "x86_64-linux"] (system:
+      let
+        overlay-unstable = final: prev: {
+          unstable = inputs.nixpkgs-unstable.legacyPackages.${system};
         };
+
+        pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = [ overlay-unstable ];
+        };
+
+        naersk' = pkgs.callPackage inputs.naersk {};
+
+        fhs = pkgs.buildFHSUserEnv {
+          name = "wincompatlib-dev";
+          targetPkgs = pkgs: with pkgs; [
+            gcc
+            cmake
+            pkg-config
+          ] ++ [ self.defaultPackage ];
+        };
+      in
+      {
+        defaultPackage = naersk'.buildPackage {
+          src = ./.;
+        };
+        devShells.default = fhs.env;
+      }
+    );
 }
