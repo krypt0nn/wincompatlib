@@ -1,6 +1,6 @@
 [package]
 name = "wincompatlib"
-version = "0.7.4"
+version = "0.7.5"
 description = "Set of interfaces to run windows applications on unix-like systems using Wine"
 authors = ["Nikita Podvirnyi <krypt0nn@vk.com>"]
 license = "MIT"
