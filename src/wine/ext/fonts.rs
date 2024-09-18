@@ -249,16 +249,38 @@ impl WineFontsExt for Wine {
 
     fn install_font(&self, font: Font) -> anyhow::Result<()> {
         fn install_fonts(wine: &Wine, font_name: &str, install: impl IntoIterator<Item = (impl AsRef<str>, impl AsRef<str>, impl AsRef<str>)>) -> anyhow::Result<()> {
-            // Took them from https://salsa.debian.org/debian/msttcorefonts/-/blob/master/update-ms-fonts + added one mine
+            // Extracted from https://sourceforge.net/p/forge/documentation/Mirrors/
             const CDN_BASE_URLS: &[&str] = &[
                 "https://downloads.sourceforge.net/corefonts",
-                "https://jaist.dl.sourceforge.net/sourceforge/corefonts",
-                "https://nchc.dl.sourceforge.net/sourceforge/corefonts",
-                "https://ufpr.dl.sourceforge.net/sourceforge/corefonts",
-                "https://internode.dl.sourceforge.net/sourceforge/corefonts",
-                "https://netcologne.dl.sourceforge.net/sourceforge/corefonts",
-                "https://vorboss.dl.sourceforge.net/sourceforge/corefonts",
-                "https://netix.dl.sourceforge.net/sourceforge/corefonts"
+                "https://jaist.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://nchc.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://netcologne.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://altushost-swe.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://cfhcable.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://cyfuture.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://cytranet-dal.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://deac-riga.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://excellmedia.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://freefr.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://gigenet.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://icolo.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://ixpeering.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://kumisystems.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://liquidtelecom.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://netactuate.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://onboardcloud.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://phoenixnap.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://pilotfiber.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://psychz.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://razaoinfo.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://sinalbr.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://sitsa.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://tenet.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://unlimited.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://versaweb.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://webwerks.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://yer.dl.sourceforge.net/project/corefonts/the%20fonts/final",
+                "https://zenlayer.dl.sourceforge.net/project/corefonts/the%20fonts/final",
             ];
 
             // Fonts blake3 hashes to verify their correctness
