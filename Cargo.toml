@@ -14,7 +14,7 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 
 # Needed by features which require downloading stuff
 # For now it's wine-fonts only
-minreq = { version = "2.12", features = ["https-rustls", "https-rustls-probe"], optional = true }
+minreq = { version = "2.12", features = ["https-native"], optional = true }
 blake3 = { version = "1.5", optional = true }
 
 [features]
