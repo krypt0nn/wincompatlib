@@ -5,7 +5,7 @@ use serial_test::*;
 use crate::prelude::*;
 use super::*;
 
-const CUSTOM_WINE: (&str, &str) = ("lutris-GE-Proton7-38-x86_64", "https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton7-38/wine-lutris-GE-Proton7-38-x86_64.tar.xz");
+const CUSTOM_WINE: (&str, &str) = ("wine-9.22-staging-tkg-amd64", "https://github.com/Kron4ek/Wine-Builds/releases/download/9.22/wine-9.22-staging-tkg-amd64.tar.xz");
 
 pub fn get_prefix_dir() -> PathBuf {
     get_test_dir().join("wine-prefix")
@@ -39,7 +39,7 @@ pub fn get_custom_wine() -> Wine {
             .expect("Failed to extract downloaded wine. Tar is not available?");
     }
 
-    Wine::from_binary(wine_dir.join("bin/wine64"))
+    Wine::from_binary(wine_dir.join("bin/wine"))
         .with_prefix(get_prefix_dir())
         .with_loader(WineLoader::Current)
         .with_arch(WineArch::Win64)
@@ -49,7 +49,7 @@ pub fn get_custom_wine() -> Wine {
 #[parallel]
 fn wine_version() -> anyhow::Result<()> {
     assert!(Wine::from_binary("\0").version().is_err());
-    assert_eq!(get_custom_wine().version()?, "wine-5.12-15713-ga2b2801a91f (Staging)\n");
+    assert_eq!(get_custom_wine().version()?, "wine-9.22.r0.g7ba8823e ( TkG Staging Esync Fsync )\n");
 
     Ok(())
 }

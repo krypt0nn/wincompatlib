@@ -6,32 +6,32 @@ use super::wine::ext::*;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallParams {
     /// Install DXGI
-    /// 
+    ///
     /// Default is `true`
     pub dxgi: bool,
 
     /// Install D3D9
-    /// 
+    ///
     /// Default is `true`
     pub d3d9: bool,
 
     /// Install D3D10 Core
-    /// 
+    ///
     /// Default is `true`
     pub d3d10core: bool,
 
     /// Install D3D11
-    /// 
+    ///
     /// Default is `true`
     pub d3d11: bool,
 
     /// Ensure wine placeholder dlls are recreated if they are missing
-    /// 
+    ///
     /// Default is `true`
     pub repair_dlls: bool,
 
     /// Which library versions should be installed
-    /// 
+    ///
     /// Default is `WineArch::Win64`
     pub arch: WineArch
 }
@@ -116,15 +116,15 @@ pub struct Dxvk;
 
 impl Dxvk {
     /// Try to get applied DXVK version from the prefix path
-    /// 
+    ///
     /// Returns:
     /// 1) `Ok(Some(..))` if version was found
     /// 2) `Ok(None)` if version wasn't found, so dxvk is not applied
     /// 3) `Err(..)` if failed to get applied dxvk version, likely because wrong prefix path specified
-    /// 
+    ///
     /// ```
     /// use wincompatlib::prelude::*;
-    /// 
+    ///
     /// match Dxvk::get_version("/path/to/prefix") {
     ///     Ok(Some(version)) => println!("DXVK applied: {}", version),
     ///     Ok(None) => println!("DXVK is not applied"),
@@ -161,12 +161,12 @@ impl Dxvk {
         // [DXVK:] hints offsets in 2.1 (~)
         // d3d11: 2789063
         //  dxgi: 1881252
-        // 
+        //
         // We'll try to find the version sequence starting from closest approximated address,
         // then extending this sequence in both directions untill we reach whole file size
-        // 
+        //
         // Bytes sequence:
-        // 
+        //
         // 1       2   3 4   5       6
         // [       [   [ ]   ]       ]
         //             ^ offset_close_start
@@ -223,12 +223,12 @@ impl Dxvk {
     }
 
     /// Install DXVK to wine prefix
-    /// 
+    ///
     /// ```no_run
     /// use wincompatlib::prelude::*;
-    /// 
+    ///
     /// use std::path::PathBuf;
-    /// 
+    ///
     /// Dxvk::install(Wine::default(), "/path/to/dxvk-x.y.z", InstallParams::default())
     ///     .expect("Failed to install DXVK");
     /// ```
@@ -260,7 +260,7 @@ impl Dxvk {
         if params.dxgi {
             match params.arch {
                 WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "dxgi")?,
-                WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "dxgi")?
+                WineArch::Win64 | WineArch::Wow64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "dxgi")?
             }
         }
 
@@ -268,7 +268,7 @@ impl Dxvk {
         if params.d3d9 {
             match params.arch {
                 WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d9")?,
-                WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d9")?
+                WineArch::Win64 | WineArch::Wow64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d9")?
             }
         }
 
@@ -276,7 +276,7 @@ impl Dxvk {
         if params.d3d10core {
             match params.arch {
                 WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d10core")?,
-                WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d10core")?
+                WineArch::Win64 | WineArch::Wow64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d10core")?
             }
         }
 
@@ -284,7 +284,7 @@ impl Dxvk {
         if params.d3d11 {
             match params.arch {
                 WineArch::Win32 => install_dll(wine, &system32, &dxvk_folder.join("x32"), "d3d11")?,
-                WineArch::Win64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d11")?
+                WineArch::Win64 | WineArch::Wow64 => install_dll(wine, &system32, &dxvk_folder.join("x64"), "d3d11")?
             }
         }
 
@@ -292,12 +292,12 @@ impl Dxvk {
     }
 
     /// Uninstall DXVK from wine prefix
-    /// 
+    ///
     /// ```no_run
     /// use wincompatlib::prelude::*;
-    /// 
+    ///
     /// use std::path::PathBuf;
-    /// 
+    ///
     /// Dxvk::uninstall(
     ///     &Wine::default(),
     ///     InstallParams::default()
@@ -327,7 +327,7 @@ impl Dxvk {
         if params.dxgi {
             match params.arch {
                 WineArch::Win32 => restore_dll(wine, &system32, "dxgi")?,
-                WineArch::Win64 => restore_dll(wine, &system32, "dxgi")?
+                WineArch::Win64 | WineArch::Wow64 => restore_dll(wine, &system32, "dxgi")?
             }
         }
 
@@ -335,7 +335,7 @@ impl Dxvk {
         if params.d3d9 {
             match params.arch {
                 WineArch::Win32 => restore_dll(wine, &system32, "d3d9")?,
-                WineArch::Win64 => restore_dll(wine, &system32, "d3d9")?
+                WineArch::Win64 | WineArch::Wow64 => restore_dll(wine, &system32, "d3d9")?
             }
         }
 
@@ -343,7 +343,7 @@ impl Dxvk {
         if params.d3d10core {
             match params.arch {
                 WineArch::Win32 => restore_dll(wine, &system32, "d3d10core")?,
-                WineArch::Win64 => restore_dll(wine, &system32, "d3d10core")?
+                WineArch::Win64 | WineArch::Wow64 => restore_dll(wine, &system32, "d3d10core")?
             }
         }
 
@@ -351,7 +351,7 @@ impl Dxvk {
         if params.d3d11 {
             match params.arch {
                 WineArch::Win32 => restore_dll(wine, &system32, "d3d11")?,
-                WineArch::Win64 => restore_dll(wine, &system32, "d3d11")?
+                WineArch::Win64 | WineArch::Wow64 => restore_dll(wine, &system32, "d3d11")?
             }
         }
 

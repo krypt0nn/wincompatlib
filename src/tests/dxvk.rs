@@ -5,7 +5,7 @@ use serial_test::*;
 use crate::prelude::*;
 use super::*;
 
-const DXVK: (&str, &str) = ("dxvk-2.1", "https://github.com/doitsujin/dxvk/releases/download/v2.1/dxvk-2.1.tar.gz");
+const DXVK: (&str, &str) = ("dxvk-2.6.1", "https://github.com/doitsujin/dxvk/releases/download/v2.6.1/dxvk-2.6.1.tar.gz");
 
 fn get_dxvk_folder() -> PathBuf {
     let test_dir = get_test_dir();
@@ -48,10 +48,7 @@ fn apply_dxvk() -> anyhow::Result<()> {
     let dxvk_folder = get_dxvk_folder();
     let wine = wine::get_custom_wine().with_prefix(wine::get_prefix_dir());
 
-    #[allow(unused_must_use)]
-    {
-        wine.uninstall_dxvk(InstallParams::default());
-    }
+    let _ = wine.uninstall_dxvk(InstallParams::default());
 
     // Test clear prefix DXVK version
     assert_eq!(Dxvk::get_version(wine::get_prefix_dir())?, None);

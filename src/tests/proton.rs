@@ -5,7 +5,7 @@ use serial_test::*;
 use crate::prelude::*;
 use super::*;
 
-const CUSTOM_PROTON: (&str, &str) = ("GE-Proton7-50", "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton7-50/GE-Proton7-50.tar.gz");
+const CUSTOM_PROTON: (&str, &str) = ("GE-Proton9-27", "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton9-27/GE-Proton9-27.tar.gz");
 
 pub fn get_prefix_dir() -> PathBuf {
     get_test_dir().join("proton-prefix")
@@ -46,7 +46,7 @@ fn get_custom_proton() -> Proton {
 #[test]
 #[parallel]
 fn proton_version() -> anyhow::Result<()> {
-    assert_eq!(get_custom_proton().wine().version()?, "wine-7.0 (Staging)\n");
+    assert_eq!(get_custom_proton().wine().version()?, "wine-9.0 (Staging)\n");
 
     Ok(())
 }
