@@ -11,6 +11,7 @@ serial_test = "3.2"
 
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
+serde = { version = "1.0", features = ["derive"] }
 
 # Needed by features which require downloading stuff
 # For now it's wine-fonts only

@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use serde::{Serialize, Deserialize};
+
 const WINE_LIBS: &[&str] = &[
     "lib",
     "lib64",
@@ -17,7 +19,7 @@ const GSTREAMER_LIBS: &[&str] = &[
     "lib32/gstreamer-1.0"
 ];
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Wine {
     /// Don't set `LD_LIBRARY_PATH` variable
     None,

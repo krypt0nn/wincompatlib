@@ -4,6 +4,8 @@ use std::os::unix::prelude::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use serde::{Serialize, Deserialize};
+
 pub mod ext;
 
 mod shared_libraries;
@@ -16,7 +18,7 @@ pub use shared_libraries::{
 #[cfg(feature = "wine-bundles")]
 pub mod bundle;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WineArch {
     /// 32 bit only wine.
     Win32,
@@ -31,8 +33,8 @@ pub enum WineArch {
 impl WineArch {
     #[allow(clippy::should_implement_trait)]
     #[inline]
-    pub fn from_str(arch: &str) -> Option<Self> {
-        match arch {
+    pub fn from_str(arch: impl AsRef<str>) -> Option<Self> {
+        match arch.as_ref() {
             "win32" | "x32" | "32" => Some(Self::Win32),
             "win64" | "x64" | "64" => Some(Self::Win64),
             "wow64" => Some(Self::Wow64),
@@ -42,7 +44,7 @@ impl WineArch {
     }
 
     #[inline]
-    pub fn to_str(&self) -> &str {
+    pub const fn to_str(&self) -> &str {
         match self {
             Self::Win32 => "win32",
             Self::Win64 => "win64",

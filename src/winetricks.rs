@@ -2,9 +2,11 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::{Command, Stdio, Child};
 
+use serde::{Serialize, Deserialize};
+
 use crate::wine::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Winetricks {
     /// Path to the `winetricks` script
     pub winetricks: PathBuf,

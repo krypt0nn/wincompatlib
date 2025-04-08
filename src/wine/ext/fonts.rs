@@ -1,9 +1,11 @@
 use std::process::{Command, Stdio};
 
+use serde::{Serialize, Deserialize};
+
 use crate::wine::*;
 use crate::wine::ext::WineRunExt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize,Deserialize)]
 pub enum Font {
     /// | File | Winetricks File | Name |
     /// | :- | :- | :- |
@@ -16,7 +18,7 @@ pub enum Font {
     /// | Arialbd.TTF | arialbd.ttf | Arial Bold |
     /// | Ariali.TTF | ariali.ttf | Arial Italic |
     /// | Arialbi.TTF | arialbi.ttf | Arial Bold Italic |
-    /// 
+    ///
     /// | File | Winetricks File | Name |
     /// | :- | :- | :- |
     /// | AriBlk.TTF | ariblk.ttf | Arial Black |
@@ -97,7 +99,7 @@ impl Font {
     }
 
     /// Get corefont code name
-    /// 
+    ///
     /// | Corefont enum | Font code name |
     /// | :- | :- |
     /// | Andale | andalemo |
@@ -126,7 +128,7 @@ impl Font {
     }
 
     /// Get full corefont name
-    /// 
+    ///
     /// | Corefont enum | Font name |
     /// | :- | :- |
     /// | Andale | Andale |
@@ -170,11 +172,11 @@ impl Font {
 
 pub trait WineFontsExt {
     /// Register font in the wine registry
-    /// 
+    ///
     /// ```no_run
     /// use wincompatlib::wine::Wine;
     /// use wincompatlib::wine::ext::WineFontsExt;
-    /// 
+    ///
     /// // times.ttf should be in the wine fonts directory
     /// if let Err(err) = Wine::default().register_font("times.ttf", "Times New Roman") {
     ///     eprintln!("Failed to register Times New Roman font: {err}");
@@ -183,23 +185,23 @@ pub trait WineFontsExt {
     fn register_font(&self, ttf: impl AsRef<str>, font_name: impl AsRef<str>) -> anyhow::Result<()>;
 
     /// Check if ttf with given name is installed in the wine fonts folder
-    /// 
+    ///
     /// ```
     /// use wincompatlib::wine::Wine;
     /// use wincompatlib::wine::ext::WineFontsExt;
-    /// 
+    ///
     /// let installed = Wine::default().font_is_installed("times");
-    /// 
+    ///
     /// println!("Is Times fonts installed: {:?}", installed);
     /// ```
     fn font_is_installed(&self, ttf: impl AsRef<str>) -> bool;
 
     /// Install given font
-    /// 
+    ///
     /// ```no_run
     /// use wincompatlib::wine::Wine;
     /// use wincompatlib::wine::ext::{WineFontsExt, Font};
-    /// 
+    ///
     /// if let Err(err) = Wine::default().install_font(Font::Times) {
     ///     eprintln!("Failed to install Times New Roman: {err}");
     /// }

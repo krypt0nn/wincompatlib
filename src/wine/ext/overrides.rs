@@ -1,9 +1,11 @@
+use serde::{Serialize, Deserialize};
+
 use crate::wine::*;
 use crate::wine::ext::WineRunExt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Some info can be found here:
-/// 
+///
 /// https://wiki.winehq.org/Wine_User%27s_Guide#DLL_Overrides
 pub enum OverrideMode {
     Native,

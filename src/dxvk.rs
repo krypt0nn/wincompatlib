@@ -1,9 +1,11 @@
 use std::path::{Path, PathBuf};
 
+use serde::{Serialize, Deserialize};
+
 use super::wine::*;
 use super::wine::ext::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallParams {
     /// Install DXGI
     ///
