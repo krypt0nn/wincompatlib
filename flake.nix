@@ -1,35 +1,29 @@
 {
     inputs = {
-        nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-        nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-        naersk.url = "github:nix-community/naersk";
+        nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
         flake-utils.url = "github:numtide/flake-utils";
+
+        rust-overlay = {
+            url = "github:oxalica/rust-overlay";
+            inputs.nixpkgs.follows = "nixpkgs";
+        };
     };
 
-    outputs = { self, flake-utils, ... }@inputs:
-        flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
+    outputs = { self, nixpkgs, flake-utils, rust-overlay, ... }:
+        flake-utils.lib.eachDefaultSystem (system:
             let
-                overlay-unstable = final: prev: {
-                    unstable = inputs.nixpkgs-unstable.legacyPackages.${system};
-                };
-
-                pkgs = import inputs.nixpkgs {
+                pkgs = import nixpkgs {
                     inherit system;
 
-                    overlays = [
-                        overlay-unstable
-                    ];
+                    overlays = [ rust-overlay.overlays.default ];
                 };
 
-                naersk' = pkgs.callPackage inputs.naersk {};
-
-                fhs = pkgs.buildFHSUserEnv {
-                    name = "wincompatlib-dev";
-
-                    targetPkgs = pkgs: with pkgs; [
-                        pkgs.unstable.rustup
-                        pkgs.unstable.rustfmt
-                        pkgs.unstable.clippy
+            in {
+                devShells.default = pkgs.mkShell rec {
+                    nativeBuildInputs = with pkgs; [
+                        (rust-bin.stable.latest.default.override {
+                            extensions = [ "rust-src" ];
+                        })
 
                         gcc
                         cmake
@@ -37,17 +31,8 @@
 
                         # Needed for fonts installation
                         cabextract
-
-                        self.defaultPackage
                     ];
                 };
-
-            in {
-                defaultPackage = naersk'.buildPackage {
-                    src = ./.;
-                };
-
-                devShells.default = fhs.env;
             }
         );
 }
